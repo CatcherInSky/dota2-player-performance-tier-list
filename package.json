@@ -1,0 +1,56 @@
+{
+  "name": "dota2-player-performance-mvp",
+  "version": "0.1.0",
+  "description": "Dota2 Player Performance Tracker MVP",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron .",
+    "package": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "find-dota": "tsx src/steam-finder.ts",
+    "setup-cfg": "node -e \"const {CfgManager} = require('./dist/cfg-manager'); try { CfgManager.ensureCfgFile(3000); } catch(e) { console.error(e.message); }\""
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/express-serve-static-core": "^4.17.41",
+    "@types/node": "^20.10.0",
+    "electron": "^39.0.0",
+    "electron-builder": "^24.13.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "build": {
+    "appId": "com.dota2.performance.mvp",
+    "productName": "Dota2 Performance MVP",
+    "asar": true,
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "files": [
+      "dist/**/*",
+      "src/index.html",
+      "public/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "extraMetadata": {
+      "main": "dist/main.js"
+    }
+  }
+}

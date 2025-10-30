@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dota2 Performance Tracker MVP</title>
+</head>
+<body>
+    <h1>Dota2 Performance Tracker MVP</h1>
+    
+    <div>
+        <h2>服务器状态</h2>
+        <p>监听端口: 3000</p>
+        <p>事件总数: <span id="events-count">0</span></p>
+        <p>最后更新: <span id="last-update">-</span></p>
+    </div>
+
+    <div>
+        <h2>所有事件数据</h2>
+        <div id="events-list">等待 Dota2 发送数据...</div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        let allEvents = [];
+
+        // 监听来自主进程的 GSI 事件
+        ipcRenderer.on('gsi-event', (event, gsiEvent) => {
+            console.log('收到 GSI 事件:', gsiEvent);
+            allEvents.push(gsiEvent);
+            updateUI();
+        });
+
+        // 更新界面
+        function updateUI() {
+            // 更新事件计数
+            document.getElementById('events-count').textContent = allEvents.length;
+            
+            // 更新最后更新时间
+            document.getElementById('last-update').textContent = new Date().toLocaleString('zh-CN');
+            
+            // 更新事件列表
+            const container = document.getElementById('events-list');
+            if (allEvents.length === 0) {
+                container.innerHTML = '等待 Dota2 发送数据...';
+                return;
+            }
+
+            // 显示所有事件（最新的在上面）
+            container.innerHTML = allEvents.slice().reverse().map((event, index) => `
+                <div style="border: 1px solid #ccc; margin: 10px 0; padding: 10px;">
+                    <p><strong>事件 #${allEvents.length - index}</strong></p>
+                    <p>时间: ${new Date(event.timestamp).toLocaleString('zh-CN')}</p>
+                    <pre style="background: #f5f5f5; padding: 10px; overflow-x: auto;">${JSON.stringify(event.data, null, 2)}</pre>
+                </div>
+            `).join('');
+        }
+
+        console.log('页面已加载，等待游戏数据...');
+    </script>
+</body>
+</html>
