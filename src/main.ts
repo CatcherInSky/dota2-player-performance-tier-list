@@ -12,7 +12,7 @@ declare const __dirname: string;
 class Application {
   private mainWindow: BrowserWindow | null = null;
   private gsiServer: GSIServer;
-  private readonly PORT = 3000;
+  private readonly PORT = 59874;
 
   constructor() {
     this.gsiServer = new GSIServer(this.PORT);

@@ -22,3 +22,4 @@ valve官方Game State Integration
 7. 可以将所有数据记录导出
 
 
+C:\Program Files (x86)\Steam\steamapps\common\dota 2 beta\game\dota\cfg

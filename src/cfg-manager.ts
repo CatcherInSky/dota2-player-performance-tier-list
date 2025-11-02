@@ -18,6 +18,41 @@ export class CfgManager {
   }
 
   /**
+   * 获取 WSL IP 地址（如果在 WSL 环境）
+   */
+  private static getWSLIP(): string | null {
+    try {
+      const os = require('os');
+      const interfaces = os.networkInterfaces();
+      
+      // 查找 eth0 接口（WSL 通常使用这个）
+      if (interfaces.eth0) {
+        for (const iface of interfaces.eth0) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            return iface.address;
+          }
+        }
+      }
+    } catch (error) {
+      // 忽略错误
+    }
+    return null;
+  }
+
+  /**
+   * 检测是否在 WSL 环境中运行
+   */
+  private static isWSL(): boolean {
+    try {
+      const os = require('os');
+      return os.release().toLowerCase().includes('microsoft') || 
+             os.release().toLowerCase().includes('wsl');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 读取 cfg 模板并替换端口占位符
    */
   private static generateCfgContent(port: number): string {
@@ -25,7 +60,15 @@ export class CfgManager {
       throw new Error(`模板文件不存在: ${this.CFG_TEMPLATE_PATH}`);
     }
     
-    const template = fs.readFileSync(this.CFG_TEMPLATE_PATH, 'utf-8');
+    let template = fs.readFileSync(this.CFG_TEMPLATE_PATH, 'utf-8');
+    
+    // 如果在 WSL 环境，使用 WSL IP 而不是 localhost
+    const wslIP = this.getWSLIP();
+    if (this.isWSL() && wslIP) {
+      console.log(`⚠️  检测到 WSL 环境，使用 WSL IP: ${wslIP}`);
+      template = template.replace('localhost', wslIP);
+    }
+    
     return template.replace('{{PORT}}', port.toString());
   }
 
@@ -53,12 +96,20 @@ export class CfgManager {
     if (fs.existsSync(cfgFilePath)) {
       const existingContent = fs.readFileSync(cfgFilePath, 'utf-8');
       
-      // 检查内容是否一致
-      if (existingContent === expectedContent) {
+      // 检查内容是否一致（忽略空白字符差异）
+      const normalize = (str: string) => str.replace(/\s+/g, ' ').trim();
+      if (normalize(existingContent) === normalize(expectedContent)) {
         console.log(`✓ 配置文件已存在且内容一致: ${cfgFilePath}`);
         return cfgFilePath;
       } else {
         console.log(`⚠ 配置文件内容不一致，正在更新...`);
+        console.log(`\n旧内容关键行:`);
+        const oldUri = existingContent.match(/"uri"\s+"([^"]+)"/);
+        if (oldUri) console.log(`  uri: ${oldUri[1]}`);
+        console.log(`\n新内容关键行:`);
+        const newUri = expectedContent.match(/"uri"\s+"([^"]+)"/);
+        if (newUri) console.log(`  uri: ${newUri[1]}`);
+        
         fs.writeFileSync(cfgFilePath, expectedContent, 'utf-8');
         console.log(`✓ 配置文件已更新: ${cfgFilePath}`);
         return cfgFilePath;
@@ -67,6 +118,13 @@ export class CfgManager {
       // 创建新文件
       fs.writeFileSync(cfgFilePath, expectedContent, 'utf-8');
       console.log(`✓ 配置文件已创建: ${cfgFilePath}`);
+      
+      // 显示创建的配置内容
+      const uri = expectedContent.match(/"uri"\s+"([^"]+)"/);
+      if (uri) {
+        console.log(`   URI: ${uri[1]}`);
+      }
+      
       return cfgFilePath;
     }
   }
