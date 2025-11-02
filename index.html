@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dota 2 玩家锐评器 - 开发模式</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 600px;
+        width: 100%;
+      }
+      
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 32px;
+      }
+      
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 16px;
+      }
+      
+      .badge {
+        display: inline-block;
+        background: #4ade80;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 20px;
+      }
+      
+      .window-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      
+      .window-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: block;
+      }
+      
+      .window-card:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      }
+      
+      .window-title {
+        color: #333;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .window-icon {
+        font-size: 24px;
+      }
+      
+      .window-desc {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      
+      .note {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 24px;
+      }
+      
+      .note-title {
+        font-weight: 600;
+        color: #92400e;
+        margin-bottom: 8px;
+      }
+      
+      .note-text {
+        color: #78350f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      
+      .note-text code {
+        background: rgba(0, 0, 0, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <span class="badge">开发模式</span>
+      <h1>🎮 Dota 2 玩家锐评器</h1>
+      <p class="subtitle">选择要查看的窗口</p>
+      
+      <div class="window-list">
+        <a href="/public/desktop.html" class="window-card">
+          <div class="window-title">
+            <span class="window-icon">🖥️</span>
+            Desktop Window - 桌面窗口
+          </div>
+          <div class="window-desc">
+            查看主页、数据统计、设置等功能。这是应用的主界面。
+          </div>
+        </a>
+        
+        <a href="/public/ingame.html" class="window-card">
+          <div class="window-title">
+            <span class="window-icon">🎯</span>
+            InGame Window - 游戏内覆盖层
+          </div>
+          <div class="window-desc">
+            游戏内显示的覆盖层窗口，包含记录模式和点评模式（使用模拟数据）。
+          </div>
+        </a>
+        
+        <a href="/public/background.html" class="window-card">
+          <div class="window-title">
+            <span class="window-icon">⚙️</span>
+            Background Window - 后台进程
+          </div>
+          <div class="window-desc">
+            后台窗口，负责游戏事件监听和数据处理。在 Overwolf 中自动运行。
+          </div>
+        </a>
+      </div>
+      
+      <div class="note">
+        <div class="note-title">💡 开发提示</div>
+        <div class="note-text">
+          • <strong>Desktop Window</strong> 可以在浏览器中完整测试<br>
+          • <strong>InGame Window</strong> 使用模拟数据预览<br>
+          • <strong>Background Window</strong> 仅在 Overwolf 环境中完整工作<br>
+          • 生产环境需要在 Overwolf 中加载 <code>dist/</code> 目录
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+

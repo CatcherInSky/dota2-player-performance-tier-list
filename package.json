@@ -1,56 +1,46 @@
 {
-  "name": "dota2-player-performance-mvp",
-  "version": "0.1.0",
-  "description": "Dota2 Player Performance Tracker MVP",
-  "main": "dist/main.js",
+  "name": "dota2-player-performance-tracker",
+  "version": "1.0.0",
+  "description": "Dota 2 玩家锐评器 - 基于 Overwolf 的玩家表现评价应用",
+  "type": "module",
+  "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "npm run build && electron .",
-    "dev": "tsc && electron .",
-    "package": "npm run build && electron-builder",
-    "postinstall": "electron-builder install-app-deps",
-    "find-dota": "tsx src/steam-finder.ts",
-    "setup-cfg": "node -e \"const {CfgManager} = require('./dist/cfg-manager'); try { CfgManager.ensureCfgFile(3000); } catch(e) { console.error(e.message); }\""
+    "dev": "vite",
+    "dev:wsl": "bash dev-wsl.sh",
+    "dev:clean": "bash dev-clean.sh",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
   },
+  "keywords": [
+    "dota2",
+    "overwolf",
+    "gaming",
+    "player-tracker"
+  ],
   "author": "",
   "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0"
+  "dependencies": {
+    "@overwolf/overwolf-api-ts": "^1.0.0",
+    "dexie": "^4.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/express-serve-static-core": "^4.17.41",
-    "@types/node": "^20.10.0",
-    "electron": "^39.0.0",
-    "electron-builder": "^24.13.3",
-    "tsx": "^4.20.6",
-    "typescript": "^5.7.2"
-  },
-  "dependencies": {
-    "express": "^4.21.2"
-  },
-  "build": {
-    "appId": "com.dota2.performance.mvp",
-    "productName": "Dota2 Performance MVP",
-    "asar": true,
-    "win": {
-      "target": [
-        "portable"
-      ],
-      "icon": "build/icon.ico"
-    },
-    "files": [
-      "dist/**/*",
-      "src/index.html",
-      "public/**/*",
-      "package.json",
-      "node_modules/**/*"
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "extraMetadata": {
-      "main": "dist/main.js"
-    }
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
   }
 }

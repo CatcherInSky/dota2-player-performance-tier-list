@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dota 2 Team Colors */
+.text-radiant {
+  @apply text-green-400;
+}
+
+.text-dire {
+  @apply text-red-400;
+}
+
+.border-radiant {
+  @apply border-green-500;
+}
+
+.border-dire {
+  @apply border-red-500;
+}
+
+.bg-radiant {
+  @apply bg-green-900/30;
+}
+
+.bg-dire {
+  @apply bg-red-900/30;
+}
+
+/* InGame Overlay 全局样式 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: transparent;
+}
+
+/* Overlay 样式 */
+#root {
+  background: transparent;
+}
+

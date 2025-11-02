@@ -1,0 +1,103 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "Dota 2 Player Performance Tracker",
+    "author": "Your Name",
+    "version": "1.0.0",
+    "minimum-overwolf-version": "0.250.0",
+    "description": "记录和查看 Dota 2 玩家的历史表现评价",
+    "dock_button_title": "Dota 2 Player Tracker",
+    "icon": "icon.png",
+    "launcher_icon": "icon.png",
+    "window_icon": "icon.png"
+  },
+  "uid": "dota2playerperformancetrackerlocaldev001",
+  "permissions": [
+    "GameInfo",
+    "GameControl",
+    "Hotkeys"
+  ],
+  "data": {
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [7314]
+    },
+    "game_events": [7314],
+    "start_window": "background",
+    "windows": {
+      "background": {
+        "file": "background.html",
+        "is_background_page": true,
+        "start_position": {
+          "top": 0,
+          "left": 0
+        }
+      },
+      "desktop": {
+        "file": "desktop.html",
+        "show_in_taskbar": true,
+        "transparent": false,
+        "resizable": true,
+        "size": {
+          "width": 1200,
+          "height": 800
+        },
+        "min_size": {
+          "width": 1000,
+          "height": 600
+        },
+        "start_position": {
+          "top": 100,
+          "left": 100
+        }
+      },
+      "ingame": {
+        "file": "ingame.html",
+        "in_game_only": true,
+        "transparent": true,
+        "resizable": false,
+        "size": {
+          "width": 1000,
+          "height": 600
+        },
+        "start_position": {
+          "top": 100,
+          "left": 460
+        }
+      }
+    },
+    "hotkeys": {
+      "toggle_window": {
+        "title": "显示/隐藏窗口",
+        "default": "Alt+Oem3"
+      }
+    },
+    "tray": {
+      "menu_items": [
+        {
+          "label": "打开主窗口",
+          "id": "open_desktop",
+          "enabled": true
+        },
+        {
+          "label": "设置",
+          "id": "open_settings",
+          "enabled": true
+        },
+        {
+          "label": "退出",
+          "id": "exit_app",
+          "enabled": true
+        }
+      ]
+    },
+    "externally_connectable": {
+      "matches": [
+        "http://*.overwolf.com",
+        "https://*.overwolf.com"
+      ]
+    }
+  }
+}
+
