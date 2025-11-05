@@ -1,70 +1,189 @@
+/**
+ * InGame Window App
+ * 使用消息通信接收来自 Background Window 的数据
+ */
+
 import React, { useState, useEffect } from 'react';
+import { ErrorBoundary } from '@renderer/shared/components/ErrorBoundary';
+import { useAppStore } from '@renderer/shared/store';
 import { RecordMode } from './RecordMode';
 import { ReviewMode } from './ReviewMode';
 import type { RosterPlayer } from '@shared/types/gep';
 
 type Mode = 'record' | 'review';
 
+interface WindowMessage {
+  type: string;
+  mode?: Mode;
+  data?: any;
+}
+
 function App() {
   const [mode, setMode] = useState<Mode>('record');
   const [rosterPlayers, setRosterPlayers] = useState<RosterPlayer[]>([]);
   const [localSteamId, setLocalSteamId] = useState('');
   const [matchId, setMatchId] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[InGame] Initializing...');
+    
     // 监听来自 Background Window 的消息
     // TODO: 集成 Overwolf API
     // overwolf.windows.onMessageReceived.addListener(handleMessage);
     
+    // 请求初始数据
+    requestInitialData();
+    
     // 开发时使用模拟数据
     if (import.meta.env.DEV) {
-      setLocalSteamId('mock_local_steam_id');
-      setMatchId('mock_match_id');
-      setRosterPlayers(mockPlayers);
+      setTimeout(() => {
+        handleMessage({
+          type: 'setMode',
+          mode: 'record',
+          data: {
+            rosterPlayers: mockPlayers,
+            localSteamId: 'mock_local_steam_id',
+            matchId: 'mock_match_id',
+          },
+        });
+      }, 1000);
     }
+
+    return () => {
+      // TODO: 清理事件监听器
+      // overwolf.windows.onMessageReceived.removeListener(handleMessage);
+    };
   }, []);
 
-  const handleMessage = (message: any) => {
-    if (message.type === 'setMode') {
-      setMode(message.mode);
-    } else if (message.type === 'setRosterData') {
-      setRosterPlayers(message.rosterPlayers);
-      setLocalSteamId(message.localSteamId);
-    } else if (message.type === 'setMatchId') {
-      setMatchId(message.matchId);
+  /**
+   * 请求初始数据
+   */
+  const requestInitialData = () => {
+    console.log('[InGame] Requesting initial data from background...');
+    
+    // TODO: 向 Background Window 请求当前数据
+    // overwolf.windows.sendMessage('background', {
+    //   type: 'requestIngameData',
+    // });
+  };
+
+  /**
+   * 处理来自 Background Window 的消息
+   */
+  const handleMessage = (message: WindowMessage) => {
+    console.log('[InGame] Received message:', message);
+
+    switch (message.type) {
+      case 'setMode':
+        if (message.mode && message.data) {
+          setMode(message.mode);
+          setRosterPlayers(message.data.rosterPlayers || []);
+          setLocalSteamId(message.data.localSteamId || '');
+          setMatchId(message.data.matchId || '');
+          setIsLoading(false);
+        }
+        break;
+
+      case 'updateRoster':
+        if (message.data?.rosterPlayers) {
+          setRosterPlayers(message.data.rosterPlayers);
+        }
+        break;
+
+      case 'close':
+        handleClose();
+        break;
+
+      default:
+        console.warn('[InGame] Unknown message type:', message.type);
     }
   };
 
+  /**
+   * 关闭窗口
+   */
   const handleClose = () => {
+    console.log('[InGame] Closing window');
+    
     // TODO: 通知 Background Window 关闭窗口
-    // overwolf.windows.sendMessage('background', 'closeInGame');
-    console.log('Close ingame window');
+    // overwolf.windows.sendMessage('background', {
+    //   type: 'closeIngame',
+    // });
+    
+    // TODO: 实现 Overwolf API 调用
+    // overwolf.windows.hide('ingame');
+  };
+
+  /**
+   * 隐藏窗口（快捷键）
+   */
+  const handleHide = () => {
+    console.log('[InGame] Hiding window');
+    
+    // TODO: 实现 Overwolf API 调用
+    // overwolf.windows.minimize('ingame');
   };
 
   return (
-    <div className="min-h-screen bg-black/80 text-white">
-      {mode === 'record' && rosterPlayers.length > 0 && (
-        <RecordMode
-          rosterPlayers={rosterPlayers}
-          localSteamId={localSteamId}
-        />
-      )}
-      {mode === 'review' && rosterPlayers.length > 0 && (
-        <ReviewMode
-          rosterPlayers={rosterPlayers}
-          localSteamId={localSteamId}
-          matchId={matchId}
-          onClose={handleClose}
-        />
-      )}
-      {rosterPlayers.length === 0 && (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-gray-400 text-center">
-            <p className="text-xl mb-2">等待游戏数据...</p>
-            <p className="text-sm">当前模式: {mode === 'record' ? '记录' : '点评'}</p>
-          </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-black/80 text-white">
+        {isLoading ? (
+          <LoadingScreen mode={mode} />
+        ) : (
+          <>
+            {mode === 'record' && rosterPlayers.length > 0 && (
+              <RecordMode
+                rosterPlayers={rosterPlayers}
+                localSteamId={localSteamId}
+                onHide={handleHide}
+              />
+            )}
+            {mode === 'review' && rosterPlayers.length > 0 && (
+              <ReviewMode
+                rosterPlayers={rosterPlayers}
+                localSteamId={localSteamId}
+                matchId={matchId}
+                onClose={handleClose}
+              />
+            )}
+            {rosterPlayers.length === 0 && (
+              <EmptyState mode={mode} />
+            )}
+          </>
+        )}
+      </div>
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * 加载屏幕
+ */
+function LoadingScreen({ mode }: { mode: Mode }) {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-gray-400 text-center">
+        <div className="mb-4">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-blue-500"></div>
         </div>
-      )}
+        <p className="text-xl mb-2">加载中...</p>
+        <p className="text-sm">模式: {mode === 'record' ? '记录' : '点评'}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 空状态
+ */
+function EmptyState({ mode }: { mode: Mode }) {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-gray-400 text-center">
+        <p className="text-xl mb-2">等待游戏数据...</p>
+        <p className="text-sm">当前模式: {mode === 'record' ? '记录' : '点评'}</p>
+      </div>
     </div>
   );
 }

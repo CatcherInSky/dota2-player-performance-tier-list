@@ -1,18 +1,31 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { copyFileSync, mkdirSync } from 'fs';
+import { copyFileSync } from 'fs';
 
 export default defineConfig({
   plugins: [
     react(),
     {
-      name: 'copy-icons',
+      name: 'copy-assets',
       closeBundle() {
-        // 构建完成后复制图标文件到 dist 根目录
-        console.log('\n📦 复制图标文件...');
+        console.log('\n📦 复制资源文件...');
         
-        // 从 public/ 复制 icon.png 到 dist/，并创建三个不同命名的副本
+        // 复制 HTML 文件
+        const htmlFiles = ['background.html', 'desktop.html', 'ingame.html'];
+        htmlFiles.forEach(file => {
+          try {
+            copyFileSync(
+              path.resolve(__dirname, `html-templates/${file}`),
+              path.resolve(__dirname, `dist/${file}`)
+            );
+            console.log(`✅ ${file}`);
+          } catch (err: any) {
+            console.error(`❌ 复制失败: ${file}`, err.message);
+          }
+        });
+        
+        // 复制图标文件
         const srcIcon = path.resolve(__dirname, 'public/icon.png');
         const iconFiles = ['icon.png', 'window_icon.png', 'launcher_icon.ico'];
         
@@ -21,12 +34,23 @@ export default defineConfig({
           try {
             copyFileSync(srcIcon, destPath);
             console.log(`✅ ${dest}`);
-          } catch (err) {
+          } catch (err: any) {
             console.error(`❌ 复制失败: ${dest}`, err.message);
           }
         });
         
-        console.log('✨ 图标复制完成\n');
+        // 复制 manifest.json
+        try {
+          copyFileSync(
+            path.resolve(__dirname, 'public/manifest.json'),
+            path.resolve(__dirname, 'dist/manifest.json')
+          );
+          console.log(`✅ manifest.json`);
+        } catch (err: any) {
+          console.error(`❌ 复制失败: manifest.json`, err.message);
+        }
+        
+        console.log('✨ 资源复制完成\n');
       }
     }
   ],
@@ -38,18 +62,26 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './src/shared'),
     },
   },
+  publicDir: false, // 禁用默认的 public 目录处理
   server: {
-    host: '0.0.0.0', // 允许从 WSL 外部访问
+    host: '0.0.0.0',
     port: 5173,
-    strictPort: true, // 如果端口被占用则报错，避免开多个实例
-    open: false, // 不自动打开浏览器
+    strictPort: true,
+    open: false,
   },
   build: {
+    outDir: 'dist',
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        background: path.resolve(__dirname, 'public/background.html'),
-        desktop: path.resolve(__dirname, 'public/desktop.html'),
-        ingame: path.resolve(__dirname, 'public/ingame.html'),
+        background: path.resolve(__dirname, 'src/main/index.ts'),
+        desktop: path.resolve(__dirname, 'src/renderer/desktop/main.tsx'),
+        ingame: path.resolve(__dirname, 'src/renderer/ingame/main.tsx'),
+      },
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
   },

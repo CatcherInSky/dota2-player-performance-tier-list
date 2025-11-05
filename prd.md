@@ -28,8 +28,8 @@
 - **前端框架**: React 18+ + TypeScript
 - **UI 框架**: TailwindCSS + shadcn/ui
 - **数据库**: IndexedDB (Dexie.js)
-- **状态管理**: React Context / Zustand
 - **游戏数据**: Overwolf GEP (Game Events Provider)
+- vite
 
 ### 2.2 开源协议要求
 - 所有依赖库必须使用商业友好协议（MIT、Apache 2.0 等）

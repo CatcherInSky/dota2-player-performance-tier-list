@@ -8,9 +8,10 @@ import type { RosterPlayer } from '@shared/types/gep';
 interface RecordModeProps {
   rosterPlayers: RosterPlayer[];
   localSteamId: string;
+  onHide?: () => void;
 }
 
-export function RecordMode({ rosterPlayers, localSteamId }: RecordModeProps) {
+export function RecordMode({ rosterPlayers, localSteamId, onHide }: RecordModeProps) {
   const { getPlayerStats } = useDatabase();
   const [playerData, setPlayerData] = useState<
     Map<string, { player: RosterPlayer; stats: any }>
@@ -46,7 +47,17 @@ export function RecordMode({ rosterPlayers, localSteamId }: RecordModeProps) {
       {/* 标题 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">玩家历史评分 - 策略时间</h1>
-        <span className="text-sm text-gray-400">Alt+` 隐藏</span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-400">Alt+` 隐藏</span>
+          {onHide && (
+            <button
+              onClick={onHide}
+              className="px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded transition-colors text-sm"
+            >
+              隐藏
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 天辉队伍 */}

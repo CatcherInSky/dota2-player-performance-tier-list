@@ -77,8 +77,13 @@ export type GEPEvent =
 // GEP Info 更新类型
 export interface GEPInfoUpdate {
   feature: string;
-  category: string;
-  key: string;
-  value: string | RosterData | MatchInfo | MeInfo;
+  category?: string;
+  key?: string;
+  value?: any;
+  info?: {
+    roster?: RosterData;
+    match_info?: MatchInfo;
+    me?: MeInfo;
+  };
 }
 
