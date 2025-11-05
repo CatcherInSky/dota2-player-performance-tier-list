@@ -1,0 +1,92 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "Dota 2 Performance Tier List",
+    "author": "Your Name",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.195.0",
+    "description": "Dota 2 Player Performance Analysis and Tier List",
+    "dock_button_title": "Dota 2 Performance",
+    "icon": "assets/128.jpg",
+    "icon_gray": "assets/128.jpg",
+    "launcher_icon": "assets/128.jpg",
+    "splash_image": "assets/728.jpg",
+    "window_icon": "assets/32.jpg"
+  },
+  "permissions": [
+    "GameInfo",
+    "Hotkeys"
+  ],
+  "data": {
+    "start_window": "background",
+    "windows": {
+      "background": {
+        "file": "background.html",
+        "is_background_page": true,
+        "transparent": true,
+        "clickthrough": true,
+        "mute": true,
+        "size": {
+          "width": 1,
+          "height": 1
+        }
+      },
+      "desktop": {
+        "file": "desktop.html",
+        "transparent": false,
+        "resizable": true,
+        "show_in_taskbar": true,
+        "size": {
+          "width": 1200,
+          "height": 800
+        },
+        "min_size": {
+          "width": 800,
+          "height": 600
+        },
+        "start_position": {
+          "top": 100,
+          "left": 100
+        }
+      },
+      "ingame": {
+        "file": "ingame.html",
+        "transparent": true,
+        "resizable": false,
+        "show_in_taskbar": false,
+        "desktop_only": false,
+        "native_window": false,
+        "size": {
+          "width": 400,
+          "height": 300
+        },
+        "start_position": {
+          "top": 100,
+          "left": 100
+        }
+      }
+    },
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [7314]
+    },
+    "game_events": [7314],
+    "launch_events": [
+      {
+        "event": "GameLaunch",
+        "event_data": {
+          "game_ids": [7314]
+        },
+        "start_minimized": false
+      }
+    ],
+    "hotkeys": {
+      "toggle_windows": {
+        "title": "Toggle All Windows",
+        "action-type": "custom",
+        "default": "Alt+Shift+D"
+      }
+    }
+  }
+}

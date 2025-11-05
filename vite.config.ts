@@ -1,89 +1,53 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import { copyFileSync } from 'fs';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 export default defineConfig({
   plugins: [
     react(),
-    {
-      name: 'copy-assets',
-      closeBundle() {
-        console.log('\n📦 复制资源文件...');
-        
-        // 复制 HTML 文件
-        const htmlFiles = ['background.html', 'desktop.html', 'ingame.html'];
-        htmlFiles.forEach(file => {
-          try {
-            copyFileSync(
-              path.resolve(__dirname, `html-templates/${file}`),
-              path.resolve(__dirname, `dist/${file}`)
-            );
-            console.log(`✅ ${file}`);
-          } catch (err: any) {
-            console.error(`❌ 复制失败: ${file}`, err.message);
-          }
-        });
-        
-        // 复制图标文件
-        const srcIcon = path.resolve(__dirname, 'public/icon.png');
-        const iconFiles = ['icon.png', 'window_icon.png', 'launcher_icon.ico'];
-        
-        iconFiles.forEach(dest => {
-          const destPath = path.resolve(__dirname, `dist/${dest}`);
-          try {
-            copyFileSync(srcIcon, destPath);
-            console.log(`✅ ${dest}`);
-          } catch (err: any) {
-            console.error(`❌ 复制失败: ${dest}`, err.message);
-          }
-        });
-        
-        // 复制 manifest.json
-        try {
-          copyFileSync(
-            path.resolve(__dirname, 'public/manifest.json'),
-            path.resolve(__dirname, 'dist/manifest.json')
-          );
-          console.log(`✅ manifest.json`);
-        } catch (err: any) {
-          console.error(`❌ 复制失败: manifest.json`, err.message);
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'manifest.json',
+          dest: '.'
+        },
+        {
+          src: 'assets/*',
+          dest: 'assets'
         }
-        
-        console.log('✨ 资源复制完成\n');
-      }
-    }
+      ]
+    })
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@main': path.resolve(__dirname, './src/main'),
-      '@renderer': path.resolve(__dirname, './src/renderer'),
-      '@shared': path.resolve(__dirname, './src/shared'),
+      '@': resolve(__dirname, './src'),
     },
   },
-  publicDir: false, // 禁用默认的 public 目录处理
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    strictPort: true,
-    open: false,
-  },
+  base: './',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        background: path.resolve(__dirname, 'src/main/index.ts'),
-        desktop: path.resolve(__dirname, 'src/renderer/desktop/main.tsx'),
-        ingame: path.resolve(__dirname, 'src/renderer/ingame/main.tsx'),
+        background: resolve(__dirname, 'background.html'),
+        desktop: resolve(__dirname, 'desktop.html'),
+        ingame: resolve(__dirname, 'ingame.html'),
       },
       output: {
         entryFileNames: '[name].js',
-        chunkFileNames: 'chunks/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
-      },
-    },
+        chunkFileNames: '[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          // 保持资源文件在 assets 目录
+          if (assetInfo.name?.match(/\.(png|jpe?g|svg|gif|ico)$/)) {
+            return 'assets/[name][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
+      }
+    }
   },
-});
-
+  server: {
+    port: 5173,
+  },
+})

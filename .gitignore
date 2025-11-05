@@ -1,16 +1,3 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Production build
-dist/
-build/
-
-# Development
-.DS_Store
-*.local
-
 # Logs
 logs
 *.log
@@ -18,29 +5,39 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Dependencies
+node_modules
 
-# Environment variables
+# Build outputs
+dist
+release
+
+# Environment
+*.local
 .env
 .env.local
-.env.production.local
-.env.development.local
-
-# Cache
-.cache/
-.parcel-cache/
-
-# Overwolf specific
-*.opk
 
 # OS
+.DS_Store
 Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+*.swo
+*~
+
+# Temporary
+*.tmp
+.cache
+
+# Old directories (from Electron migration)
+electron/
+electron-src/
+scripts/
+dist-electron/
