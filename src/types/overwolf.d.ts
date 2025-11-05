@@ -144,6 +144,10 @@ declare namespace overwolf {
         callback: (result: SetRequiredFeaturesResult) => void
       ): void;
 
+      function getInfo(
+        callback: (result: any) => void
+      ): void;
+
       const onNewEvents: {
         addListener(callback: (event: NewGameEventsEvent) => void): void;
         removeListener(callback: (event: NewGameEventsEvent) => void): void;

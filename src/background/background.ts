@@ -304,15 +304,15 @@ class BackgroundController {
     });
   }
 
-  private getCurrentGameInfo() {
-    // 主动获取当前游戏信息
-    overwolf.games.events.getInfo((info: any) => {
-      console.log('[Background] GetInfo result:', JSON.stringify(info, null, 2));
-      if (info && info.res) {
-        this.sendPlayerInfoToIngame(info.res);
-      }
-    });
-  }
+  // private getCurrentGameEventsInfo() {
+  //   // 主动获取当前游戏信息
+  //   overwolf.games.events.getInfo((info: any) => {
+  //     console.log('[Background] GetInfo result:', JSON.stringify(info, null, 2));
+  //     if (info && info.res) {
+  //       this.sendPlayerInfoToIngame(info.res);
+  //     }
+  //   });
+  // }
 
   private async sendPlayerInfoToIngame(gameInfo: any) {
     console.log('[Background] sendPlayerInfoToIngame called with:', JSON.stringify(gameInfo, null, 2));
