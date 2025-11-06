@@ -5,6 +5,15 @@
 
 /// <reference path="../types/overwolf.d.ts" />
 
+import { dataCache } from './data-cache';
+import { accountsRepository } from '../db/repositories/accounts.repository';
+import { matchesRepository } from '../db/repositories/matches.repository';
+import { playersRepository } from '../db/repositories/players.repository';
+import { db } from '../db/database';
+import { getAccountId, getAccountName, getPlayerId, getPlayerName, getMatchId, getHeroName, getHeroId, formatKDA } from '../utils/data-extraction';
+import { validateMatchData, validateAccountData, validatePlayerData, checkMatchIdExists } from '../utils/data-validation';
+import type { Dota2InfoUpdates, Dota2RosterPlayer } from '../types/dota2-gep';
+
 /**
  * Overwolf API 类包装器
  * 简化常用 API 调用
@@ -311,6 +320,9 @@ class BackgroundController {
 
       // 处理游戏状态变化
       if (info && info.info) {
+        // 更新缓存
+        dataCache.updateCache(info.info as Dota2InfoUpdates);
+
         // 检查 game_state
         if (info.info.game_state) {
           const gameState = info.info.game_state.game_state || info.info.game_state;
@@ -318,6 +330,9 @@ class BackgroundController {
             this.handleGameStateChange(gameState);
           }
         }
+
+        // 处理账户信息更新
+        this.handleAccountUpdate(info.info as Dota2InfoUpdates);
 
         // 传递玩家信息到 ingame 窗口
         this.sendPlayerInfoToIngame(info.info);
@@ -459,6 +474,7 @@ class BackgroundController {
       case 'match_ended':
         if (event.data && event.data.winner) {
           console.log('[Background] Match ended. Winner:', event.data.winner);
+          await this.handleMatchEnded(event.data);
         }
         break;
 
@@ -591,6 +607,293 @@ class BackgroundController {
         }
       });
     });
+  }
+
+  /**
+   * 处理账户信息更新
+   * 在 onInfoUpdates2 监听器中调用
+   */
+  private async handleAccountUpdate(info: Dota2InfoUpdates): Promise<void> {
+    try {
+      if (!info.me) {
+        console.warn('[Background] No me info available for account update');
+        return;
+      }
+
+      const accountId = getAccountId(info.me);
+      const accountName = getAccountName(info.me);
+
+      if (!accountId) {
+        console.warn('[Background] No account_id found, skipping account update');
+        return;
+      }
+
+      // 验证数据
+      const validation = validateAccountData({
+        account_id: accountId,
+        name: accountName,
+      });
+
+      if (!validation.valid) {
+        console.error('[Background] Account data validation failed:', validation.errors);
+        return;
+      }
+
+      // 更新或创建账户记录
+      const now = Math.floor(Date.now() / 1000);
+      await accountsRepository.upsert({
+        account_id: accountId,
+        name: accountName,
+        created_at: now,
+        updated_at: now,
+      });
+
+      console.log('[Background] Account updated:', accountId, accountName);
+    } catch (error) {
+      console.error('[Background] Error updating account:', error);
+    }
+  }
+
+  /**
+   * 处理比赛结束事件
+   */
+  private async handleMatchEnded(eventData: any): Promise<void> {
+    try {
+      console.log('[Background] Handling match_ended event');
+
+      // 1. 立即调用 getInfo() 获取最新快照
+      const latestInfo = await this.getInfoSnapshot();
+      
+      // 2. 如果数据不完整，等待 onInfoUpdates2 更新（最多 5 秒）
+      let useData: Dota2InfoUpdates | null = latestInfo;
+      
+      if (!latestInfo || !this.isDataComplete(latestInfo)) {
+        console.log('[Background] Data incomplete, waiting for onInfoUpdates2 update...');
+        const cachedInfo = await this.waitForInfoUpdate(5000);
+        if (cachedInfo) {
+          useData = cachedInfo;
+        } else {
+          useData = latestInfo; // 使用不完整数据，记录警告
+          console.warn('[Background] Using incomplete data after timeout');
+        }
+      }
+
+      if (!useData) {
+        console.error('[Background] No data available for match_ended');
+        return;
+      }
+
+      // 3. 验证数据完整性
+      const validation = validateMatchData(useData);
+      if (!validation.valid) {
+        console.error('[Background] Match data validation failed:', validation.errors);
+        return;
+      }
+
+      // 4. 检查 match_id 是否已存在（避免重复记录）
+      const matchId = getMatchId(useData.match_info!);
+      if (!matchId) {
+        console.error('[Background] No match_id found');
+        return;
+      }
+
+      const exists = await checkMatchIdExists(matchId, matchesRepository);
+      if (exists) {
+        console.log('[Background] Match already exists, skipping:', matchId);
+        return;
+      }
+
+      // 5. 使用事务创建记录
+      await this.createMatchRecords(useData, eventData);
+
+      // 6. 发送 MATCH_INFO 消息给 ingame 窗口
+      this.sendMatchInfoToIngame(useData, eventData);
+
+      console.log('[Background] Match ended handling completed');
+    } catch (error) {
+      console.error('[Background] Error handling match_ended:', error);
+    }
+  }
+
+  /**
+   * 获取当前游戏信息快照
+   */
+  private async getInfoSnapshot(): Promise<Dota2InfoUpdates | null> {
+    return new Promise((resolve) => {
+      overwolf.games.events.getInfo((result: any) => {
+        if (result && result.res) {
+          resolve(result.res as Dota2InfoUpdates);
+        } else {
+          // 如果 getInfo 失败，尝试使用缓存
+          const cached = dataCache.getCachedInfo();
+          resolve(cached);
+        }
+      });
+    });
+  }
+
+  /**
+   * 等待 onInfoUpdates2 更新（最多等待指定毫秒数）
+   */
+  private async waitForInfoUpdate(timeoutMs: number): Promise<Dota2InfoUpdates | null> {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      
+      const checkCache = () => {
+        const cached = dataCache.getCachedInfo();
+        if (cached && this.isDataComplete(cached)) {
+          resolve(cached);
+          return;
+        }
+
+        const elapsed = Date.now() - startTime;
+        if (elapsed >= timeoutMs) {
+          resolve(null);
+          return;
+        }
+
+        // 继续等待
+        setTimeout(checkCache, 100);
+      };
+
+      checkCache();
+    });
+  }
+
+  /**
+   * 检查数据是否完整
+   */
+  private isDataComplete(info: Dota2InfoUpdates): boolean {
+    if (!info.match_info || !info.roster || !info.roster.players) {
+      return false;
+    }
+
+    if (!Array.isArray(info.roster.players) || info.roster.players.length !== 10) {
+      return false;
+    }
+
+    const matchId = getMatchId(info.match_info);
+    if (!matchId) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 创建比赛和玩家记录（使用事务）
+   */
+  private async createMatchRecords(info: Dota2InfoUpdates, eventData: any): Promise<void> {
+    const matchId = getMatchId(info.match_info!);
+    const accountId = getAccountId(info.me!);
+    const now = Math.floor(Date.now() / 1000);
+
+    if (!matchId || !accountId) {
+      throw new Error('Missing match_id or account_id');
+    }
+
+    // 计算 start_time（从 end_time - duration 推算）
+    const endTime = now;
+    const duration = info.match_info!.duration || 0;
+    const startTime = endTime - duration;
+
+    // 准备比赛记录数据
+    const matchData: any = {
+      match_id: matchId,
+      player_id: accountId,
+      game_mode: this.getGameMode(info),
+      match_mode: info.match_info!.game_mode || info.match_info!.mode || 'unknown',
+      start_time: startTime,
+      end_time: endTime,
+      winner: eventData.winner || 'unknown',
+    };
+
+    // 处理玩家数据
+    const players = info.roster!.players!;
+    const playerRecords: any[] = [];
+
+    for (let i = 0; i < players.length; i++) {
+      const player = players[i];
+      const playerIndex = i + 1;
+      
+      const playerId = getPlayerId(player);
+      const playerName = getPlayerName(player);
+      const heroName = getHeroName(player);
+      const heroId = getHeroId(player);
+
+      // 添加到比赛记录
+      (matchData as any)[`player_${playerIndex}_id`] = playerId;
+      (matchData as any)[`player_${playerIndex}_kda`] = formatKDA(
+        player.kills,
+        player.deaths,
+        player.assists
+      );
+      (matchData as any)[`player_${playerIndex}_gpm`] = player.gpm;
+      (matchData as any)[`player_${playerIndex}_xpm`] = player.xpm;
+      (matchData as any)[`player_${playerIndex}_hero_id`] = heroId;
+      (matchData as any)[`player_${playerIndex}_hero_name`] = heroName;
+
+      // 准备玩家记录
+      playerRecords.push({
+        player_id: playerId,
+        current_name: playerName,
+        previous_names: [],
+        first_seen: now,
+        last_seen: now,
+      });
+    }
+
+    // 使用事务创建记录
+    await db.transaction('rw', [db.matches, db.players, db.accounts], async () => {
+      // 创建比赛记录
+      await matchesRepository.create(matchData);
+
+      // 更新或创建玩家记录
+      for (const playerRecord of playerRecords) {
+        await playersRepository.upsert(playerRecord);
+      }
+
+      // 更新账户记录（如果账户信息发生变化）
+      if (info.me) {
+        await this.handleAccountUpdate(info);
+      }
+    });
+
+    console.log('[Background] Match and player records created successfully');
+  }
+
+  /**
+   * 获取游戏模式
+   */
+  private getGameMode(info: Dota2InfoUpdates): string {
+    if (info.game_state) {
+      const gameState = typeof info.game_state === 'string' 
+        ? info.game_state 
+        : (info.game_state as any).game_state;
+      return gameState || 'idle';
+    }
+    return 'idle';
+  }
+
+  /**
+   * 发送 MATCH_INFO 消息给 ingame 窗口
+   */
+  private sendMatchInfoToIngame(info: Dota2InfoUpdates, eventData: any): void {
+    const matchId = getMatchId(info.match_info!);
+    if (!matchId) {
+      return;
+    }
+
+    const matchInfo = {
+      type: 'MATCH_INFO',
+      match_id: matchId,
+      match_mode: info.match_info!.game_mode || info.match_info!.mode || 'unknown',
+      winner: eventData.winner || 'unknown',
+      start_time: info.match_info!.start_time,
+      end_time: info.match_info!.end_time,
+    };
+
+    this.sendMessageToWindow(WINDOWS.INGAME, matchInfo);
   }
 
   public async run() {

@@ -1,13 +1,28 @@
-import { useState, useEffect } from 'react';
-import {
-  isOverwolfApp,
-  getRunningGameInfo,
-  simulateGameStateChange,
-} from './utils/overwolf';
+/**
+ * Desktop 窗口主应用
+ * 使用 React Router 管理路由
+ */
 
-function App() {
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { AccountSelector } from './components/desktop/AccountSelector';
+import { AppGuide } from './components/desktop/AppGuide';
+import { OverviewData } from './components/desktop/OverviewData';
+import { MatchDetail } from './components/desktop/MatchDetail';
+import { PlayerDetail } from './components/desktop/PlayerDetail';
+import { Settings } from './components/desktop/Settings';
+import { isOverwolfApp, getRunningGameInfo } from './utils/overwolf';
+import { accountsRepository } from './db/repositories/accounts.repository';
+import type { Account } from './db/database';
+import { matchesRepository } from './db/repositories/matches.repository';
+
+function AppContent() {
   const [gameState, setGameState] = useState<string>('未检测到游戏');
   const [isGameRunning, setIsGameRunning] = useState(false);
+  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+  const [hasData, setHasData] = useState<boolean | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // 检查游戏状态
@@ -31,59 +46,118 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 模拟游戏状态变化（测试用）
-  const handleGameStateChange = async (state: string) => {
-    await simulateGameStateChange(state);
-    const stateName = state === 'DOTA_GAMERULES_STATE_STRATEGY_TIME' ? '策略阶段' : '赛后阶段';
-    setGameState(`模拟: ${stateName}`);
+  useEffect(() => {
+    // 检查是否有数据
+    const checkData = async () => {
+      try {
+        const matches = await matchesRepository.findAll();
+        setHasData(matches.length > 0);
+      } catch (error) {
+        console.error('[App] Error checking data:', error);
+        setHasData(false);
+      }
+    };
+    checkData();
+  }, []);
+
+  // 鼠标侧键支持（Mouse 4/5）
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 3) {
+        // Mouse 4 (后退)
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.button === 4) {
+        // Mouse 5 (前进)
+        e.preventDefault();
+        navigate(1);
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => window.removeEventListener('mousedown', handleMouseDown);
+  }, [navigate]);
+
+  const handleAccountChange = (account: Account) => {
+    setCurrentAccount(account);
+  };
+
+  // 根据状态决定显示哪个组件
+  const getDefaultRoute = () => {
+    if (!isGameRunning) {
+      // 状态 1: 没打开 dota2 - 暂时显示应用说明
+      return '/guide';
+    }
+    if (hasData === false) {
+      // 状态 2: 没有历史数据 - 显示应用说明
+      return '/guide';
+    }
+    // 状态 4/5: 有数据 - 显示总览
+    return '/overview';
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Dota 2 Performance Tier List</h1>
-        <p className="text-sm text-gray-400 mb-6">Desktop Window - MVP</p>
-
-        <div className="bg-slate-800 rounded-lg p-4 mb-6">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-400">环境:</span>
-              <span className="font-mono">{isOverwolfApp() ? 'Overwolf' : 'Browser'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">游戏状态:</span>
-              <span className="font-mono text-blue-400">{gameState}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">游戏运行:</span>
-              <span className={`font-mono ${isGameRunning ? 'text-green-400' : 'text-gray-500'}`}>
-                {isGameRunning ? '是' : '否'}
-              </span>
-            </div>
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* 顶部导航栏 */}
+      <header className="bg-slate-800 border-b border-slate-700 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold">Dota 2 玩家表现评价</h1>
+            {isGameRunning && (
+              <AccountSelector onAccountChange={handleAccountChange} />
+            )}
           </div>
+          
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(-1)}
+              disabled={location.pathname === '/' || location.pathname === '/overview' || location.pathname === '/guide'}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm transition-colors"
+            >
+              后退
+            </button>
+            <button
+              onClick={() => navigate(1)}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
+            >
+              前进
+            </button>
+            <button
+              onClick={() => navigate('/overview')}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
+            >
+              Home
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
+            >
+              设置
+            </button>
+          </nav>
         </div>
+      </header>
 
-        {isOverwolfApp() && (
-          <div className="bg-slate-800 rounded-lg p-4">
-            <h2 className="text-sm font-semibold mb-3 text-gray-300">测试控制</h2>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleGameStateChange('DOTA_GAMERULES_STATE_STRATEGY_TIME')}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition-colors"
-              >
-                策略阶段
-              </button>
-              <button
-                onClick={() => handleGameStateChange('DOTA_GAMERULES_STATE_POST_GAME')}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
-              >
-                赛后阶段
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* 主内容区 */}
+      <main className="p-6">
+        <Routes>
+          <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
+          <Route path="/guide" element={<AppGuide />} />
+          <Route path="/overview" element={<OverviewData currentAccount={currentAccount} />} />
+          <Route path="/match/:matchId" element={<MatchDetail currentAccount={currentAccount} />} />
+          <Route path="/player/:playerId" element={<PlayerDetail currentAccount={currentAccount} />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 

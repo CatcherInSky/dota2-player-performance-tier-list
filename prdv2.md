@@ -1096,3 +1096,9 @@ ingame 的快捷键：
   ```
 - `TOGGLE_VISIBILITY` - 控制窗口显示/隐藏
 - `RESIZE_WINDOW` - 控制窗口尺寸
+
+# 国际化
+
+中英
+英雄名称
+界面内容
