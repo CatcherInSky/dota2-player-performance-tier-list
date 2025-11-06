@@ -261,22 +261,43 @@ class BackgroundController {
     console.log('[Background] Starting game events listener');
 
     // 设置所需的游戏事件特性
-    // 根据 PRD，需要: game_state, match_state_changed, roster, match_info, me, match_ended
-    const requiredFeatures = ['game_state', 'match_state_changed', 'roster', 'match_info', 'me'];
+    // 根据 Overwolf documentation, these are the key features we need for Dota 2
+    const requiredFeatures = [
+      'game_state',
+      'match_state_changed',
+      'roster',
+      'match_info',
+      'me',
+      'match_ended',
+      'kill',
+      'assist',
+      'death',
+      'cs',
+      'xpm',
+      'gpm',
+      'gold'
+    ];
+
     overwolf.games.events.setRequiredFeatures(requiredFeatures, (result: overwolf.games.events.SetRequiredFeaturesResult) => {
       console.log('[Background] Set required features result:', result);
       console.log('[Background] Supported features:', result.supportedFeatures);
-      
+
       // 如果设置成功，立即获取一次当前数据
       if (result.success) {
-        this.getCurrentGameInfo();
+        // 获取当前游戏信息
+        overwolf.games.events.getInfo((info: any) => {
+          console.log('[Background] GetInfo result:', JSON.stringify(info, null, 2));
+          if (info && info.res) {
+            this.sendPlayerInfoToIngame(info.res);
+          }
+        });
       }
     });
 
     // 监听游戏事件
     overwolf.games.events.onNewEvents.addListener((events: overwolf.games.events.NewGameEventsEvent) => {
       console.log('[Background] New game events:', events);
-      
+
       if (events && events.events) {
         for (const event of events.events) {
           this.handleGameEvent(event);
@@ -287,7 +308,7 @@ class BackgroundController {
     // 监听游戏信息更新
     overwolf.games.events.onInfoUpdates2.addListener((info: overwolf.games.events.InfoUpdates2Event) => {
       console.log('[Background] Game info update (full):', JSON.stringify(info, null, 2));
-      
+
       // 处理游戏状态变化
       if (info && info.info) {
         // 检查 game_state
@@ -297,7 +318,7 @@ class BackgroundController {
             this.handleGameStateChange(gameState);
           }
         }
-        
+
         // 传递玩家信息到 ingame 窗口
         this.sendPlayerInfoToIngame(info.info);
       }
@@ -317,82 +338,99 @@ class BackgroundController {
   private async sendPlayerInfoToIngame(gameInfo: any) {
     console.log('[Background] sendPlayerInfoToIngame called with:', JSON.stringify(gameInfo, null, 2));
     const players: any[] = [];
-    
-    // 尝试多种数据格式来获取玩家信息
-    // 1. roster 对象（可能包含 players 数组或直接是对象）
-    if (gameInfo.roster) {
-      console.log('[Background] Found roster:', gameInfo.roster);
-      
-      // 如果 roster 有 players 数组
+
+    // Parse player information from different possible data sources
+    // According to Dota 2 GEP documentation, roster is the main source
+
+    // 1. Try to get players from roster.players (most reliable)
+    if (gameInfo.roster && gameInfo.roster.players) {
+      console.log('[Background] Found roster.players:', gameInfo.roster.players);
       if (Array.isArray(gameInfo.roster.players)) {
         gameInfo.roster.players.forEach((player: any, index: number) => {
-          players.push({
-            playerId: player.playerId || player.account_id || `player_${index}`,
+          // Handle different data structures from GEP
+          const playerData = {
+            playerId: player.playerId || player.account_id || player.steamId || `player_${index}`,
             playerName: player.player_name || player.name || player.playerName || '未知',
-            steamId: player.steamid || player.steam_id || player.steamId,
+            steamId: player.steamid || player.steam_id || player.steamId || player.steamId,
             heroName: player.hero || player.heroName,
             heroId: player.hero_id,
-            team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined)
-          });
-        });
-      } 
-      // 如果 roster 是对象，遍历其属性
-      else if (typeof gameInfo.roster === 'object') {
-        Object.entries(gameInfo.roster).forEach(([key, value]: [string, any]) => {
-          // 跳过非玩家对象（如 players 数组本身）
-          if (key === 'players' || Array.isArray(value)) return;
-          
-          players.push({
-            playerId: value.playerId || value.account_id || key,
-            playerName: value.player_name || value.name || value.playerName || '未知',
-            steamId: value.steamid || value.steam_id || value.steamId,
-            heroName: value.hero || value.heroName,
-            heroId: value.hero_id,
-            team: value.team || (value.team_name === 'radiant' ? 'radiant' : value.team_name === 'dire' ? 'dire' : undefined)
-          });
+            team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined),
+            role: player.role,
+            rank: player.rank,
+            index: player.index || index,
+            teamSlot: player.team_slot
+          };
+
+          // Only add if we have meaningful data
+          if (playerData.playerId && playerData.playerId !== 'player_0') {
+            players.push(playerData);
+          }
         });
       }
     }
-    
-    // 2. 直接访问 players 数组
-    if (gameInfo.players && Array.isArray(gameInfo.players)) {
-      console.log('[Background] Found players array:', gameInfo.players);
-      gameInfo.players.forEach((player: any, index: number) => {
-        players.push({
-          playerId: player.playerId || player.account_id || `player_${index}`,
-          playerName: player.player_name || player.name || player.playerName || '未知',
-          steamId: player.steamid || player.steam_id || player.steamId,
-          heroName: player.hero || player.heroName,
-          heroId: player.hero_id,
-          team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined)
-        });
-      });
-    }
-    
-    // 3. 从 match_info 中获取玩家信息
-    if (gameInfo.match_info && gameInfo.match_info.players) {
-      console.log('[Background] Found players in match_info');
+
+    // 2. Try to get players from match_info.players if roster is not available
+    if (players.length === 0 && gameInfo.match_info && gameInfo.match_info.players) {
+      console.log('[Background] Found match_info.players:', gameInfo.match_info.players);
       if (Array.isArray(gameInfo.match_info.players)) {
         gameInfo.match_info.players.forEach((player: any, index: number) => {
-          players.push({
-            playerId: player.playerId || player.account_id || `player_${index}`,
+          const playerData = {
+            playerId: player.playerId || player.account_id || player.steamId || `player_${index}`,
             playerName: player.player_name || player.name || player.playerName || '未知',
-            steamId: player.steamid || player.steam_id || player.steamId,
+            steamId: player.steamid || player.steam_id || player.steamId || player.steamId,
             heroName: player.hero || player.heroName,
             heroId: player.hero_id,
-            team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined)
-          });
+            team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined),
+            role: player.role,
+            rank: player.rank,
+            index: player.index || index,
+            teamSlot: player.team_slot
+          };
+
+          if (playerData.playerId && playerData.playerId !== 'player_0') {
+            players.push(playerData);
+          }
         });
       }
     }
-    
+
+    // 3. Try to parse players from raw roster data (if it's a string)
+    if (players.length === 0 && gameInfo.roster && typeof gameInfo.roster === 'string') {
+      try {
+        const rosterData = JSON.parse(gameInfo.roster);
+        if (Array.isArray(rosterData.players)) {
+          console.log('[Background] Found parsed roster.players:', rosterData.players);
+          rosterData.players.forEach((player: any, index: number) => {
+            const playerData = {
+              playerId: player.playerId || player.account_id || player.steamId || `player_${index}`,
+              playerName: player.player_name || player.name || player.playerName || '未知',
+              steamId: player.steamid || player.steam_id || player.steamId || player.steamId,
+              heroName: player.hero || player.heroName,
+              heroId: player.hero_id,
+              team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined),
+              role: player.role,
+              rank: player.rank,
+              index: player.index || index,
+              teamSlot: player.team_slot
+            };
+
+            if (playerData.playerId && playerData.playerId !== 'player_0') {
+              players.push(playerData);
+            }
+          });
+        }
+      } catch (e) {
+        console.error('[Background] Failed to parse roster string:', e);
+      }
+    }
+
     console.log('[Background] Extracted players:', players);
-    
+
     if (players.length > 0) {
       console.log('[Background] Sending player info to ingame window:', players.length, 'players');
-      this.sendMessageToWindow(WINDOWS.INGAME, { 
-        type: 'PLAYER_INFO', 
-        players 
+      this.sendMessageToWindow(WINDOWS.INGAME, {
+        type: 'PLAYER_INFO',
+        players
       });
     } else {
       console.warn('[Background] No players found in game info');
@@ -401,10 +439,73 @@ class BackgroundController {
 
   private async handleGameEvent(event: any) {
     console.log('[Background] Handling game event:', event);
-    
-    if (event.name === 'game_state_changed') {
-      const gameState = event.data;
-      await this.handleGameStateChange(gameState);
+
+    switch (event.name) {
+      case 'game_state_changed':
+        const gameState = event.data;
+        if (typeof gameState === 'string') {
+          await this.handleGameStateChange(gameState);
+        } else if (gameState && gameState.game_state) {
+          await this.handleGameStateChange(gameState.game_state);
+        }
+        break;
+
+      case 'match_state_changed':
+        if (event.data && event.data.match_state) {
+          console.log('[Background] Match state changed to:', event.data.match_state);
+        }
+        break;
+
+      case 'match_ended':
+        if (event.data && event.data.winner) {
+          console.log('[Background] Match ended. Winner:', event.data.winner);
+        }
+        break;
+
+      case 'kill':
+        if (event.data && event.data.kills) {
+          console.log('[Background] Kill event - Kills:', event.data.kills, 'Kill streak:', event.data.kill_streak);
+        }
+        break;
+
+      case 'assist':
+        if (event.data && event.data.assists) {
+          console.log('[Background] Assist event - Assists:', event.data.assists);
+        }
+        break;
+
+      case 'death':
+        if (event.data && event.data.deaths) {
+          console.log('[Background] Death event - Deaths:', event.data.deaths);
+        }
+        break;
+
+      case 'cs':
+        if (event.data && event.data.last_hits) {
+          console.log('[Background] CS event - Last hits:', event.data.last_hits, 'Denies:', event.data.denies);
+        }
+        break;
+
+      case 'xpm':
+        if (event.data && event.data.xpm) {
+          console.log('[Background] XPM event - XPM:', event.data.xpm);
+        }
+        break;
+
+      case 'gpm':
+        if (event.data && event.data.gpm) {
+          console.log('[Background] GPM event - GPM:', event.data.gpm);
+        }
+        break;
+
+      case 'gold':
+        if (event.data && event.data.gold) {
+          console.log('[Background] Gold event - Gold:', event.data.gold);
+        }
+        break;
+
+      default:
+        console.log('[Background] Unhandled game event:', event.name);
     }
   }
 
