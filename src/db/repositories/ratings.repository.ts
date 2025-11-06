@@ -141,12 +141,16 @@ export class RatingsRepository {
    * 获取玩家的上次评分（按 created_at 降序，取第一条）
    */
   async getLastRatingByPlayerId(playerId: string | number): Promise<Rating | undefined> {
-    return await db.ratings
+    const ratings = await db.ratings
       .where('player_id')
       .equals(playerId)
-      .orderBy('created_at')
-      .reverse()
-      .first();
+      .toArray();
+    
+    if (ratings.length === 0) {
+      return undefined;
+    }
+    
+    return ratings.sort((a, b) => b.created_at - a.created_at)[0];
   }
 
   /**
@@ -156,12 +160,16 @@ export class RatingsRepository {
     playerId: string | number,
     accountId: string | number
   ): Promise<Rating | undefined> {
-    return await db.ratings
+    const ratings = await db.ratings
       .where('[player_id+account_id]')
       .equals([playerId, accountId])
-      .orderBy('created_at')
-      .reverse()
-      .first();
+      .toArray();
+    
+    if (ratings.length === 0) {
+      return undefined;
+    }
+    
+    return ratings.sort((a, b) => b.created_at - a.created_at)[0];
   }
 
   /**

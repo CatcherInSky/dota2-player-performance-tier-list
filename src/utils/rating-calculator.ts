@@ -15,9 +15,11 @@ export async function getLastRating(
 ): Promise<Rating | null> {
   try {
     if (accountId) {
-      return await ratingsRepository.getLastRatingByPlayerIdAndAccountId(playerId, accountId);
+      const rating = await ratingsRepository.getLastRatingByPlayerIdAndAccountId(playerId, accountId);
+      return rating || null;
     } else {
-      return await ratingsRepository.getLastRatingByPlayerId(playerId);
+      const rating = await ratingsRepository.getLastRatingByPlayerId(playerId);
+      return rating || null;
     }
   } catch (error) {
     console.error('[RatingCalculator] Error getting last rating:', error);

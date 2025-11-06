@@ -8,7 +8,6 @@ import { matchesRepository } from '../../db/repositories/matches.repository';
 import { playersRepository } from '../../db/repositories/players.repository';
 import { accountsRepository } from '../../db/repositories/accounts.repository';
 import { ratingsRepository } from '../../db/repositories/ratings.repository';
-import type { Match, Player, Account, Rating } from '../../db/database';
 
 export function Settings() {
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');

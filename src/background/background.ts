@@ -11,8 +11,8 @@ import { matchesRepository } from '../db/repositories/matches.repository';
 import { playersRepository } from '../db/repositories/players.repository';
 import { db } from '../db/database';
 import { getAccountId, getAccountName, getPlayerId, getPlayerName, getMatchId, getHeroName, getHeroId, formatKDA } from '../utils/data-extraction';
-import { validateMatchData, validateAccountData, validatePlayerData, checkMatchIdExists } from '../utils/data-validation';
-import type { Dota2InfoUpdates, Dota2RosterPlayer } from '../types/dota2-gep';
+import { validateMatchData, validateAccountData, checkMatchIdExists } from '../utils/data-validation';
+import type { Dota2InfoUpdates } from '../types/dota2-gep';
 
 /**
  * Overwolf API 类包装器

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchesRepository } from '../../db/repositories/matches.repository';
 import { playersRepository } from '../../db/repositories/players.repository';
-import type { Account, Match, Player } from '../../db/database';
+import type { Account, Match } from '../../db/database';
 
 interface MatchDetailProps {
   currentAccount: Account | null;

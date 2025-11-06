@@ -12,12 +12,10 @@ import { MatchDetail } from './components/desktop/MatchDetail';
 import { PlayerDetail } from './components/desktop/PlayerDetail';
 import { Settings } from './components/desktop/Settings';
 import { isOverwolfApp, getRunningGameInfo } from './utils/overwolf';
-import { accountsRepository } from './db/repositories/accounts.repository';
 import type { Account } from './db/database';
 import { matchesRepository } from './db/repositories/matches.repository';
 
 function AppContent() {
-  const [gameState, setGameState] = useState<string>('未检测到游戏');
   const [isGameRunning, setIsGameRunning] = useState(false);
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const [hasData, setHasData] = useState<boolean | null>(null);
@@ -31,13 +29,9 @@ function AppContent() {
         const gameInfo = await getRunningGameInfo();
         if (gameInfo && gameInfo.isRunning) {
           setIsGameRunning(true);
-          setGameState('Dota 2 运行中');
         } else {
           setIsGameRunning(false);
-          setGameState('Dota 2 未运行');
         }
-      } else {
-        setGameState('非 Overwolf 环境');
       }
     };
 

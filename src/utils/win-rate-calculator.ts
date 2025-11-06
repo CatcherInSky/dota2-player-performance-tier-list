@@ -4,7 +4,7 @@
  */
 
 import { matchesRepository } from '../db/repositories/matches.repository';
-import type { Match, Account } from '../db/database';
+import type { Match } from '../db/database';
 
 /**
  * 获取玩家所在队伍
