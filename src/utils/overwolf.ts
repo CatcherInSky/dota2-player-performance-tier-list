@@ -101,14 +101,37 @@ export const dragWindow = (): void => {
   });
 };
 
+// 调整窗口尺寸
+export const dragResizeWindow = (edge: string = 'BottomRight'): void => {
+  overwolf.windows.getCurrentWindow((result: overwolf.windows.GetCurrentWindowResult) => {
+    if (result.success) {
+      (overwolf.windows as any).dragResize(result.window.id, edge);
+    }
+  });
+};
+
 // 监听窗口消息
-export const onMessageReceived = (callback: (message: any) => void): void => {
-  overwolf.windows.onMessageReceived.addListener((message: overwolf.windows.MessageReceivedEvent) => {
+export const onMessageReceived = (callback: (message: any) => void): (() => void) => {
+  if (typeof overwolf === 'undefined') {
+    return () => {};
+  }
+
+  const handler = (message: overwolf.windows.MessageReceivedEvent) => {
     console.log('[Overwolf] Message received:', message);
     if (message.content) {
       callback(message.content);
     }
-  });
+  };
+
+  overwolf.windows.onMessageReceived.addListener(handler);
+
+  return () => {
+    try {
+      overwolf.windows.onMessageReceived.removeListener(handler);
+    } catch (error) {
+      console.warn('[Overwolf] Failed to remove message listener:', error);
+    }
+  };
 };
 
 // 获取游戏信息

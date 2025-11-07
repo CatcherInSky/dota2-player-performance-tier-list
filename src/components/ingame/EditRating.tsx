@@ -4,9 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { accountsRepository } from '../../db/repositories/accounts.repository';
 import { ratingsRepository } from '../../db/repositories/ratings.repository';
-import type { Account } from '../../db/database';
 
 interface Player {
   playerId?: string | number;
@@ -29,14 +27,12 @@ interface PlayerRating {
 }
 
 
+const DEFAULT_ACCOUNT_ID = 'spectator';
+
 export function EditRating({ players, matchId }: EditRatingProps) {
-  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const [playerRatings, setPlayerRatings] = useState<PlayerRating[]>([]);
   const [matchIdState, setMatchIdState] = useState<string | number | null>(matchId || null);
-
-  useEffect(() => {
-    loadCurrentAccount();
-  }, []);
+  const accountIdRef = useRef<string>(DEFAULT_ACCOUNT_ID);
 
   useEffect(() => {
     // 如果没有 matchId，尝试获取
@@ -59,15 +55,6 @@ export function EditRating({ players, matchId }: EditRatingProps) {
       );
     }
   }, [players]);
-
-  const loadCurrentAccount = async () => {
-    try {
-      const account = await accountsRepository.getCurrentAccount();
-      setCurrentAccount(account || null);
-    } catch (error) {
-      console.error('[EditRating] Error loading current account:', error);
-    }
-  };
 
   const getMatchId = async () => {
     try {
@@ -134,10 +121,9 @@ export function EditRating({ players, matchId }: EditRatingProps) {
 
   const saveRating = useCallback(async (index: number, rating: PlayerRating) => {
     // 使用最新的状态值
-    const account = currentAccount;
     const matchId = matchIdState;
 
-    if (!rating.player.playerId || !account) {
+    if (!rating.player.playerId) {
       return;
     }
 
@@ -158,7 +144,7 @@ export function EditRating({ players, matchId }: EditRatingProps) {
       // 检查是否已存在该评分（同一玩家、同一账户、同一比赛）
       const existing = await ratingsRepository.findByPlayerIdAndAccountIdAndMatchId(
         rating.player.playerId,
-        account.account_id,
+        accountIdRef.current,
         finalMatchId
       );
 
@@ -172,7 +158,7 @@ export function EditRating({ players, matchId }: EditRatingProps) {
         // 创建新评分
         await ratingsRepository.create({
           player_id: rating.player.playerId,
-          account_id: account.account_id,
+          account_id: accountIdRef.current,
           match_id: finalMatchId,
           score: rating.score,
           comment: rating.comment || undefined,
@@ -203,7 +189,7 @@ export function EditRating({ players, matchId }: EditRatingProps) {
         return newRatings;
       });
     }
-  }, [currentAccount, matchIdState]);
+  }, [matchIdState]);
 
   const handleSetAllThreeStars = () => {
     const newRatings = playerRatings.map((pr) => ({ ...pr, score: 3 as const }));

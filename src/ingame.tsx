@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import { onMessageReceived } from './utils/overwolf';
+import { onMessageReceived, dragWindow, dragResizeWindow } from './utils/overwolf';
 import { PlayerSimpleRating } from './components/ingame/PlayerSimpleRating';
 import { EditRating } from './components/ingame/EditRating';
 
@@ -33,7 +33,7 @@ function IngameApp() {
 
   useEffect(() => {
     // 监听来自 background 的消息
-    onMessageReceived((message) => {
+    const unsubscribe = onMessageReceived((message) => {
       console.log('[Ingame] Received message:', message);
 
       // 处理 DISPLAY_MODE 消息
@@ -45,6 +45,10 @@ function IngameApp() {
       if (message.type === 'PLAYER_INFO') {
         console.log('[Ingame] Player info:', message.players);
         setPlayers(message.players || []);
+
+        if ((message.players?.length ?? 0) > 0 && !displayMode) {
+          setDisplayMode('strategy');
+        }
       }
 
       // 处理 MATCH_INFO 消息
@@ -57,50 +61,128 @@ function IngameApp() {
           start_time: message.start_time,
           end_time: message.end_time,
         });
+        // 自动切换到 postgame 模式
+        setDisplayMode('postgame');
       }
     });
 
     // 监听游戏信息更新（直接从 ingame 窗口监听）
+    let infoUpdatesListener: ((info: any) => void) | undefined;
     if (typeof overwolf !== 'undefined') {
-      overwolf.games.events.onInfoUpdates2.addListener((info: any) => {
+      infoUpdatesListener = (info: any) => {
         console.log('[Ingame] Info update:', info);
         if (info && info.info) {
           updatePlayersFromGameInfo(info.info);
         }
+      };
+      overwolf.games.events.onInfoUpdates2.addListener(infoUpdatesListener);
+
+      overwolf.games.events.getInfo((result: any) => {
+        if (result && result.res) {
+          updatePlayersFromGameInfo(result.res);
+        }
       });
     }
+
+    return () => {
+      unsubscribe?.();
+      if (infoUpdatesListener && typeof overwolf !== 'undefined') {
+        overwolf.games.events.onInfoUpdates2.removeListener(infoUpdatesListener);
+      }
+    };
   }, []);
 
   const updatePlayersFromGameInfo = (gameInfo: any) => {
-    const playerList: Player[] = [];
-
-    // 从 roster.players 获取玩家信息
-    if (gameInfo.roster && gameInfo.roster.players) {
-      if (Array.isArray(gameInfo.roster.players)) {
-        gameInfo.roster.players.forEach((player: any, index: number) => {
-          playerList.push({
-            playerId: player.account_id || player.steamId || player.steam_id || player.steamid || `player_${index}`,
-            playerName: player.player_name || player.name || player.playerName || '未知',
-            steamId: player.steamid || player.steam_id || player.steamId,
-            heroName: player.hero || player.heroName,
-            team: player.team || (player.team_name === 'radiant' ? 'radiant' : player.team_name === 'dire' ? 'dire' : undefined),
-          });
-        });
-      }
-    }
+    const playerList = extractPlayers(gameInfo);
 
     if (playerList.length > 0) {
       setPlayers(playerList);
     }
+
+    const infoMatch = gameInfo?.match_info;
+    if (infoMatch) {
+      setMatchInfo({
+        match_id: infoMatch.pseudo_match_id || infoMatch.match_id,
+        match_mode: infoMatch.game_mode || infoMatch.mode,
+        winner: infoMatch.winner,
+        start_time: infoMatch.start_time,
+        end_time: infoMatch.end_time,
+      });
+    }
+  };
+
+  const extractPlayers = (gameInfo: any): Player[] => {
+    const playerList: Player[] = [];
+
+    const appendPlayers = (source: any[]) => {
+      const startIndex = playerList.length;
+      source.forEach((player: any, index: number) => {
+        playerList.push({
+          playerId:
+            player.playerId ||
+            player.account_id ||
+            player.steamId ||
+            player.steam_id ||
+            player.steamid ||
+            `player_${startIndex + index}`,
+          playerName: player.player_name || player.name || player.playerName || '未知',
+          steamId: player.steamid || player.steam_id || player.steamId,
+          heroName: player.hero || player.heroName,
+          team:
+            player.team ||
+            (player.team_name === 'radiant'
+              ? 'radiant'
+              : player.team_name === 'dire'
+              ? 'dire'
+              : undefined),
+        });
+      });
+    };
+
+    if (Array.isArray(gameInfo?.roster?.players)) {
+      appendPlayers(gameInfo.roster.players);
+    }
+
+    if (playerList.length === 0 && Array.isArray(gameInfo?.match_info?.players)) {
+      appendPlayers(gameInfo.match_info.players);
+    }
+
+    return playerList;
   };
 
   return (
-    <div className="min-h-screen bg-black/85 text-white p-4">
-      <div className="mb-4">
-        <h1 className="text-lg font-bold">In-Game Overlay</h1>
-        <p className="text-xs text-gray-400">
-          {displayMode === 'strategy' ? '策略阶段' : displayMode === 'postgame' ? '赛后阶段' : '等待游戏数据...'}
-        </p>
+    <div className="min-h-screen bg-black/85 text-white p-4 relative">
+      <div
+        className="flex items-center justify-between mb-4 select-none cursor-move"
+        onMouseDown={() => dragWindow()}
+      >
+        <div>
+          <h1 className="text-lg font-bold">In-Game Overlay</h1>
+          <p className="text-xs text-gray-400">
+            {displayMode === 'strategy' ? '策略阶段' : displayMode === 'postgame' ? '赛后阶段' : '等待游戏数据...'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 cursor-default">
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              dragWindow();
+            }}
+            className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded"
+          >
+            拖动
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              dragResizeWindow('BottomRight');
+            }}
+            className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded cursor-se-resize"
+          >
+            调整大小
+          </button>
+        </div>
       </div>
 
       {/* 根据 displayMode 显示不同组件 */}
@@ -121,6 +203,14 @@ function IngameApp() {
       <div className="mt-4 pt-2 border-t border-white/10 text-xs text-gray-500">
         Alt+Shift+D 隐藏
       </div>
+
+      <div
+        className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          dragResizeWindow('BottomRight');
+        }}
+      />
     </div>
   );
 }

@@ -1102,3 +1102,31 @@ ingame 的快捷键：
 中英
 英雄名称
 界面内容
+
+
+# 需要修改逻辑1107
+## 快捷键控制展示 - fixed
+如果ingame和desktop展示其中一个，按快捷键会全部隐藏
+两个都展示，按快捷键也会全部隐藏、
+两个都不展示，按快捷键全部展示
+
+
+## ingame页面 - fixed
+目前不可以调整尺寸
+一直展示等待数据中
+
+# desktop页面 - fixed
+desktop增加一个日志页，展示background监听到的所有数据
+
+## ingame数据流 - fixed
+接收到player信息的时候，展示player信息
+但是假如数据库中没有评价数据和其他数据，该项目留空
+
+
+## background
+meinfo 里面没有steam_id 暂时移除account表相关逻辑 移除账号选择器
+
+## 比赛结束之后
+1 没有将ingame修改为评价组件
+2 没有出发player和match往数据库的写入
+3 getinfo疑似没有获取到数据

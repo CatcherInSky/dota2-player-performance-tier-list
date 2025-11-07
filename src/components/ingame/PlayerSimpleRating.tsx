@@ -6,9 +6,8 @@
 import { useState, useEffect } from 'react';
 import { calculateAllyWinRate, calculateEnemyWinRate } from '../../utils/win-rate-calculator';
 import { getLastRating, getAverageRating, roundRating, getRatingText } from '../../utils/rating-calculator';
-import { accountsRepository } from '../../db/repositories/accounts.repository';
 import { ratingsRepository } from '../../db/repositories/ratings.repository';
-import type { Account, Rating } from '../../db/database';
+import type { Rating } from '../../db/database';
 
 interface Player {
   playerId?: string | number;
@@ -31,39 +30,40 @@ interface PlayerStats {
 }
 
 export function PlayerSimpleRating({ players }: PlayerSimpleRatingProps) {
-  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadCurrentAccount();
-  }, []);
-
-  useEffect(() => {
-    if (currentAccount && players.length > 0) {
-      loadPlayerStats();
+    if (players.length === 0) {
+      setPlayerStats([]);
+      setLoading(false);
+      return;
     }
-  }, [currentAccount, players]);
 
-  const loadCurrentAccount = async () => {
-    try {
-      const account = await accountsRepository.getCurrentAccount();
-      setCurrentAccount(account || null);
-    } catch (error) {
-      console.error('[PlayerSimpleRating] Error loading current account:', error);
-    }
-  };
+    const baseStats: PlayerStats[] = players.map((player) => ({
+      player,
+      allyWinRate: null,
+      enemyWinRate: null,
+      lastRating: null,
+      averageRating: null,
+      topComments: [],
+    }));
 
-  const loadPlayerStats = async () => {
+    setPlayerStats(baseStats);
+    setLoading(false);
+
+    loadPlayerStats(players);
+  }, [players]);
+
+  const loadPlayerStats = async (playersToProcess: Player[]) => {
     try {
-      setLoading(true);
       const stats: PlayerStats[] = [];
 
-      for (const player of players) {
+      for (const player of playersToProcess) {
         if (!player.playerId) continue;
 
         const playerId = player.playerId;
-        const accountId = currentAccount?.account_id;
+        const accountId = null;
 
         // 并行计算所有统计数据
         const [allyWinRate, enemyWinRate, lastRating, averageRating, topComments] = await Promise.all([
@@ -87,8 +87,6 @@ export function PlayerSimpleRating({ players }: PlayerSimpleRatingProps) {
       setPlayerStats(stats);
     } catch (error) {
       console.error('[PlayerSimpleRating] Error loading player stats:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -153,10 +151,16 @@ export function PlayerSimpleRating({ players }: PlayerSimpleRatingProps) {
 
 function PlayerCard({ stat, onClick }: { stat: PlayerStats; onClick: () => void }) {
   const { player, allyWinRate, enemyWinRate, lastRating, averageRating, topComments } = stat;
+  const teamValue =
+    typeof player.team === 'string'
+      ? player.team
+      : player.team === 2
+      ? 'radiant'
+      : player.team === 3
+      ? 'dire'
+      : undefined;
 
-  const teamColor = player.team === 'radiant' ? 'border-green-500' : 
-                    player.team === 'dire' ? 'border-red-500' : 
-                    'border-gray-500';
+  const teamColor = teamValue === 'radiant' ? 'border-green-500' : teamValue === 'dire' ? 'border-red-500' : 'border-gray-500';
 
   return (
     <div

@@ -53,7 +53,7 @@
       "ingame": {
         "file": "ingame.html",
         "transparent": true,
-        "resizable": false,
+        "resizable": true,
         "show_in_taskbar": false,
         "desktop_only": false,
         "native_window": false,

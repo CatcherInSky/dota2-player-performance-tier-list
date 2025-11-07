@@ -8,15 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import { matchesRepository } from '../../db/repositories/matches.repository';
 import { playersRepository } from '../../db/repositories/players.repository';
 import { ratingsRepository } from '../../db/repositories/ratings.repository';
-import type { Account, Match, Player, Rating } from '../../db/database';
-
-interface OverviewDataProps {
-  currentAccount: Account | null;
-}
+import type { Match, Player, Rating } from '../../db/database';
 
 type TabType = 'matches' | 'players' | 'ratings';
 
-export function OverviewData({ currentAccount }: OverviewDataProps) {
+export function OverviewData() {
   const [activeTab, setActiveTab] = useState<TabType>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -26,7 +22,7 @@ export function OverviewData({ currentAccount }: OverviewDataProps) {
 
   useEffect(() => {
     loadData();
-  }, [activeTab, currentAccount]);
+  }, [activeTab]);
 
   const loadData = async () => {
     try {

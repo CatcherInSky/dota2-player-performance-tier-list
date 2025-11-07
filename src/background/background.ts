@@ -12,6 +12,13 @@ import { playersRepository } from '../db/repositories/players.repository';
 import { db } from '../db/database';
 import { getAccountId, getAccountName, getPlayerId, getPlayerName, getMatchId, getHeroName, getHeroId, formatKDA } from '../utils/data-extraction';
 import { validateMatchData, validateAccountData, checkMatchIdExists } from '../utils/data-validation';
+interface ScoreboardStats {
+  kills: number;
+  deaths: number;
+  assists: number;
+  gpm?: number;
+  xpm?: number;
+}
 import type { Dota2InfoUpdates } from '../types/dota2-gep';
 
 /**
@@ -143,6 +150,9 @@ class BackgroundController {
   private static _instance: BackgroundController;
   private _windows: Map<string, OWWindow> = new Map();
   private _gameListener: OWGameListener;
+  private _windowsVisible = true;
+  private _eventsListening = false;
+  private _cachedPlayers: any[] | null = null;
 
   private constructor() {
     this._gameListener = new OWGameListener({
@@ -184,9 +194,9 @@ class BackgroundController {
 
       // 检查当前游戏状态
       const gameInfo = await this.getCurrentGameInfo();
-      if (gameInfo && gameInfo.isRunning && gameInfo.id === DOTA2_GAME_ID) {
-        console.log('[Background] Dota 2 is running');
-        await this.onGameStarted(gameInfo);
+      if (gameInfo && this.isDota2Game(gameInfo)) {
+        console.log('[Background] Dota 2 is running (startup detection)');
+        await this.startGameEventsListener();
       }
 
       console.log('[Background] Initialized successfully');
@@ -209,16 +219,15 @@ class BackgroundController {
   }
 
   private async toggleAllWindows() {
+    this._windowsVisible = !this._windowsVisible;
+
     for (const [name, window] of this._windows) {
       if (name === WINDOWS.BACKGROUND) continue;
 
-      const state = await window.getWindowState();
-      if (state.success && state.window_state_ex !== 'closed') {
-        if (state.window_state === 'minimized' || state.window_state === 'hidden') {
-          await window.restore();
-        } else {
-          await window.minimize();
-        }
+      if (this._windowsVisible) {
+        await window.restore();
+      } else {
+        await window.minimize();
       }
     }
   }
@@ -235,14 +244,23 @@ class BackgroundController {
     });
   }
 
+  private isDota2Game(info: { classId?: number; id?: number } | null | undefined): boolean {
+    if (!info) {
+      return false;
+    }
+
+    const classId = (info as any).classId ?? (info as any).id;
+    return classId === DOTA2_GAME_ID;
+  }
+
   private async onGameStarted(info: overwolf.games.GameInfoUpdatedEvent) {
     console.log('[Background] Game started:', info);
 
-    if (info.gameInfo?.id === DOTA2_GAME_ID) {
+    if (this.isDota2Game(info.gameInfo)) {
       console.log('[Background] Dota 2 detected');
       
       // 启动游戏事件监听
-      this.startGameEventsListener();
+      await this.startGameEventsListener();
       
       // 可以选择性地打开桌面窗口或游戏内窗口
       // await this.openDesktopWindow();
@@ -252,7 +270,7 @@ class BackgroundController {
   private async onGameEnded(info: overwolf.games.GameInfoUpdatedEvent) {
     console.log('[Background] Game ended:', info);
 
-    if (info.gameInfo?.id === DOTA2_GAME_ID) {
+    if (this.isDota2Game(info.gameInfo)) {
       console.log('[Background] Dota 2 closed');
       
       // 关闭游戏内窗口
@@ -263,11 +281,19 @@ class BackgroundController {
 
       // 打开桌面窗口
       await this.openDesktopWindow();
+
+      this._eventsListening = false;
     }
   }
 
-  private startGameEventsListener() {
+  private async startGameEventsListener() {
+    if (this._eventsListening) {
+      console.log('[Background] Game events listener already running');
+      return;
+    }
+
     console.log('[Background] Starting game events listener');
+    this._eventsListening = true;
 
     // 设置所需的游戏事件特性
     // 根据 Overwolf documentation, these are the key features we need for Dota 2
@@ -300,6 +326,9 @@ class BackgroundController {
             this.sendPlayerInfoToIngame(info.res);
           }
         });
+      } else {
+        console.error('[Background] Failed to set required features:', JSON.stringify(result));
+        this._eventsListening = false;
       }
     });
 
@@ -323,12 +352,30 @@ class BackgroundController {
         // 更新缓存
         dataCache.updateCache(info.info as Dota2InfoUpdates);
 
+        const rawMatchState = (info.info as any)?.match_state;
+        const matchState = typeof rawMatchState === 'string' ? rawMatchState : rawMatchState?.match_state;
+        const gameStateValue = info.info.game_state?.game_state || info.info.game_state;
+        const rosterCount = Array.isArray((info.info as any)?.roster?.players)
+          ? (info.info as any).roster.players.length
+          : 0;
+
+        this.pushLogEvent('infoUpdates2', {
+          gameState: gameStateValue,
+          matchState,
+          rosterCount,
+          hasMe: Boolean((info.info as any)?.me),
+        });
+
         // 检查 game_state
         if (info.info.game_state) {
-          const gameState = info.info.game_state.game_state || info.info.game_state;
-          if (gameState) {
-            this.handleGameStateChange(gameState);
+          if (gameStateValue) {
+            this.handleGameStateChange(gameStateValue);
           }
+        }
+
+        // 检查 match_state（策略/赛后阶段）
+        if (matchState) {
+          this.handleGameStateChange(matchState);
         }
 
         // 处理账户信息更新
@@ -359,9 +406,10 @@ class BackgroundController {
 
     // 1. Try to get players from roster.players (most reliable)
     if (gameInfo.roster && gameInfo.roster.players) {
-      console.log('[Background] Found roster.players:', gameInfo.roster.players);
-      if (Array.isArray(gameInfo.roster.players)) {
-        gameInfo.roster.players.forEach((player: any, index: number) => {
+      const rosterPlayers = this.normalizePlayers(gameInfo.roster.players);
+      console.log('[Background] Found roster.players:', rosterPlayers);
+      if (Array.isArray(rosterPlayers)) {
+        rosterPlayers.forEach((player: any, index: number) => {
           // Handle different data structures from GEP
           const playerData = {
             playerId: player.playerId || player.account_id || player.steamId || `player_${index}`,
@@ -386,9 +434,10 @@ class BackgroundController {
 
     // 2. Try to get players from match_info.players if roster is not available
     if (players.length === 0 && gameInfo.match_info && gameInfo.match_info.players) {
-      console.log('[Background] Found match_info.players:', gameInfo.match_info.players);
-      if (Array.isArray(gameInfo.match_info.players)) {
-        gameInfo.match_info.players.forEach((player: any, index: number) => {
+      const matchPlayers = this.normalizePlayers(gameInfo.match_info.players);
+      console.log('[Background] Found match_info.players:', matchPlayers);
+      if (Array.isArray(matchPlayers)) {
+        matchPlayers.forEach((player: any, index: number) => {
           const playerData = {
             playerId: player.playerId || player.account_id || player.steamId || `player_${index}`,
             playerName: player.player_name || player.name || player.playerName || '未知',
@@ -442,18 +491,203 @@ class BackgroundController {
     console.log('[Background] Extracted players:', players);
 
     if (players.length > 0) {
-      console.log('[Background] Sending player info to ingame window:', players.length, 'players');
+      this._cachedPlayers = players;
+      await this.openIngameWindow('strategy');
       this.sendMessageToWindow(WINDOWS.INGAME, {
         type: 'PLAYER_INFO',
-        players
+        players,
       });
+      this.pushLogEvent('sendPlayerInfo', { count: players.length });
     } else {
-      console.warn('[Background] No players found in game info');
+      this._cachedPlayers = null;
+      this.pushLogEvent('sendPlayerInfoSkipped', { reason: 'empty_players' });
     }
+  }
+
+  private normalizePlayers(rawPlayers: any): any[] | null {
+    if (Array.isArray(rawPlayers)) {
+      return rawPlayers;
+    }
+
+    if (typeof rawPlayers === 'string') {
+      try {
+        const parsed = JSON.parse(rawPlayers);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+
+        if (parsed && Array.isArray(parsed.players)) {
+          return parsed.players;
+        }
+      } catch (error) {
+        console.error('[Background] Failed to parse players string:', error);
+      }
+    }
+
+    if (rawPlayers && typeof rawPlayers === 'object' && Array.isArray(rawPlayers.players)) {
+      return rawPlayers.players;
+    }
+
+    return null;
+  }
+
+  private extractScoreboardPlayers(rawScoreboard: any): any[] {
+    if (!rawScoreboard) {
+      return [];
+    }
+
+    let data = rawScoreboard;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (error) {
+        console.error('[Background] Failed to parse scoreboard string:', error);
+        return [];
+      }
+    }
+
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    let players: any[] = [];
+    if (Array.isArray(data.players)) {
+      players = players.concat(data.players);
+    }
+    if (Array.isArray(data.radiant)) {
+      players = players.concat(data.radiant);
+    }
+    if (Array.isArray(data.dire)) {
+      players = players.concat(data.dire);
+    }
+
+    return players;
+  }
+
+  private buildScoreboardStats(info: Dota2InfoUpdates): Map<string, ScoreboardStats> {
+    const map = new Map<string, ScoreboardStats>();
+    const rawScoreboard = (info.match_info as any)?.scoreboard ?? (info as any)?.scoreboard;
+    const players = this.extractScoreboardPlayers(rawScoreboard);
+
+    players.forEach((player: any) => {
+      const stats: ScoreboardStats = {
+        kills: this.pickNumber(player.kills, player.stats?.kills) ?? 0,
+        deaths: this.pickNumber(player.deaths, player.stats?.deaths) ?? 0,
+        assists: this.pickNumber(player.assists, player.stats?.assists) ?? 0,
+      };
+
+      const gpm = this.pickNumber(
+        player.gpm,
+        player.gold_per_min,
+        player.gold_per_minute,
+        player.goldPerMinute,
+        player.goldPerMin,
+        player.gold_for_min,
+        player.goldForMinute
+      );
+      const xpm = this.pickNumber(
+        player.xpm,
+        player.xp_per_min,
+        player.xp_per_minute,
+        player.xpPerMinute,
+        player.experience_per_min,
+        player.experience_per_minute,
+        player.expPerMinute
+      );
+
+      if (gpm !== undefined) {
+        stats.gpm = gpm;
+      }
+      if (xpm !== undefined) {
+        stats.xpm = xpm;
+      }
+
+      const identifiers = this.normalizeIdentifiers([
+        player.playerId,
+        player.player_id,
+        player.account_id,
+        player.accountId,
+        player.id,
+        player.steamId,
+        player.steam_id,
+        player.steamid,
+      ]);
+
+      identifiers.forEach((id) => {
+        map.set(id, stats);
+      });
+    });
+
+    return map;
+  }
+
+  private resolvePlayerStats(statsMap: Map<string, ScoreboardStats>, player: any): ScoreboardStats | undefined {
+    const identifiers = this.normalizeIdentifiers([
+      player.playerId,
+      player.account_id,
+      player.player_id,
+      player.accountId,
+      player.id,
+      player.steamId,
+      player.steam_id,
+      player.steamid,
+    ]);
+
+    for (const id of identifiers) {
+      const stats = statsMap.get(id);
+      if (stats) {
+        return stats;
+      }
+    }
+    return undefined;
+  }
+
+  private normalizeIdentifiers(candidates: Array<string | number | undefined | null>): string[] {
+    const result = new Set<string>();
+    candidates.forEach((candidate) => {
+      if (candidate === undefined || candidate === null) {
+        return;
+      }
+      const asString = String(candidate);
+      if (asString && asString !== 'undefined' && asString !== 'null') {
+        result.add(asString);
+      }
+      const numeric = Number(candidate);
+      if (!Number.isNaN(numeric) && numeric !== 0) {
+        result.add(String(numeric));
+        const steam32 = this.convertSteam64To32(numeric);
+        if (steam32 !== null) {
+          result.add(String(steam32));
+        }
+      }
+    });
+    return Array.from(result);
+  }
+
+  private convertSteam64To32(value: number): number | null {
+    const STEAM_64_OFFSET = 76561197960265728;
+    if (value > STEAM_64_OFFSET) {
+      return value - STEAM_64_OFFSET;
+    }
+    return null;
+  }
+
+  private pickNumber(...values: any[]): number | undefined {
+    for (const value of values) {
+      if (value === undefined || value === null || value === '') {
+        continue;
+      }
+      const num = Number(value);
+      if (!Number.isNaN(num)) {
+        return num;
+      }
+    }
+    return undefined;
   }
 
   private async handleGameEvent(event: any) {
     console.log('[Background] Handling game event:', event);
+    this.pushLogEvent('onNewEvents', event);
 
     switch (event.name) {
       case 'game_state_changed':
@@ -467,7 +701,9 @@ class BackgroundController {
 
       case 'match_state_changed':
         if (event.data && event.data.match_state) {
-          console.log('[Background] Match state changed to:', event.data.match_state);
+          const matchState = event.data.match_state;
+          console.log('[Background] Match state changed to:', matchState);
+          await this.handleGameStateChange(matchState);
         }
         break;
 
@@ -476,6 +712,12 @@ class BackgroundController {
           console.log('[Background] Match ended. Winner:', event.data.winner);
           await this.handleMatchEnded(event.data);
         }
+        break;
+
+      case 'game_over':
+        console.log('[Background] Game over event received');
+        // game_over 事件可能没有 winner 字段，使用空对象
+        await this.handleMatchEnded(event.data || {});
         break;
 
       case 'kill':
@@ -526,22 +768,46 @@ class BackgroundController {
   }
 
   private async handleGameStateChange(gameState: string) {
+    if (!gameState) {
+      return;
+    }
+
     console.log('[Background] Game state changed:', gameState);
 
-    switch (gameState) {
-      case Dota2GameState.STRATEGY_TIME:
-        console.log('[Background] Strategy time - opening ingame window');
-        await this.openIngameWindow('strategy');
-        break;
+    const normalized = gameState.toString().toUpperCase();
 
-      case Dota2GameState.POST_GAME:
-        console.log('[Background] Post game - opening ingame window');
-        await this.openIngameWindow('postgame');
-        break;
+    const isStrategyPhase =
+      normalized.includes('STRATEGY') ||
+      normalized.includes('HERO_SELECTION') ||
+      normalized.includes('HERO_PICK') ||
+      normalized.includes('PRE_GAME') ||
+      normalized === 'PREGAME';
 
-      default:
-        console.log('[Background] Unknown game state:', gameState);
+    const isPostGamePhase =
+      normalized.includes('POST') ||
+      normalized.includes('END') ||
+      normalized.includes('RESULT');
+
+    if (isStrategyPhase) {
+      console.log('[Background] Strategy phase detected - opening ingame window');
+      await this.openIngameWindow('strategy');
+      return;
     }
+
+    if (isPostGamePhase) {
+      console.log('[Background] Post game phase detected - opening ingame window');
+      await this.openIngameWindow('postgame');
+      return;
+    }
+
+    if (normalized === Dota2GameState.STRATEGY_TIME || normalized === Dota2GameState.POST_GAME) {
+      // Already handled by checks above, but keep fallback for exact matches
+      const mode = normalized === Dota2GameState.STRATEGY_TIME ? 'strategy' : 'postgame';
+      await this.openIngameWindow(mode);
+      return;
+    }
+
+    console.log('[Background] Game state ignored:', gameState);
   }
 
   private async openDesktopWindow() {
@@ -555,6 +821,7 @@ class BackgroundController {
 
     try {
       console.log('[Background] Restoring desktop window...');
+      this._windowsVisible = true;
       await desktopWindow.restore();
       console.log('[Background] Desktop window restored successfully');
     } catch (error) {
@@ -565,6 +832,7 @@ class BackgroundController {
   private async openIngameWindow(mode: 'strategy' | 'postgame') {
     const ingameWindow = this._windows.get(WINDOWS.INGAME);
     if (ingameWindow) {
+      this._windowsVisible = true;
       // 通过 window.name 传递模式信息
       // 在游戏内窗口中可以通过 URL 参数或其他方式接收
       const state = await ingameWindow.getWindowState();
@@ -573,7 +841,9 @@ class BackgroundController {
       } else {
         await ingameWindow.bringToFront();
       }
-      
+
+      await this.delay(200);
+
       // 可以通过消息传递模式
       this.sendMessageToWindow(WINDOWS.INGAME, { type: 'DISPLAY_MODE', mode });
     }
@@ -597,6 +867,29 @@ class BackgroundController {
     }
   }
 
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private pushLogEvent(category: string, data: any) {
+    try {
+      const safeData = JSON.parse(JSON.stringify(data));
+      this.sendMessageToWindow(WINDOWS.DESKTOP, {
+        type: 'LOG_EVENT',
+        category,
+        timestamp: Date.now(),
+        data: safeData,
+      });
+    } catch (error) {
+      this.sendMessageToWindow(WINDOWS.DESKTOP, {
+        type: 'LOG_EVENT',
+        category,
+        timestamp: Date.now(),
+        data: { message: '无法序列化日志数据', error: String(error) },
+      });
+    }
+  }
+
   private async getWindowId(windowName: string): Promise<string | null> {
     return new Promise((resolve) => {
       overwolf.windows.obtainDeclaredWindow(windowName, (result: overwolf.windows.ObtainDeclaredWindowResult) => {
@@ -614,12 +907,10 @@ class BackgroundController {
    * 在 onInfoUpdates2 监听器中调用
    */
   private async handleAccountUpdate(info: Dota2InfoUpdates): Promise<void> {
+    if (!info.me || !info.me.steam_id) {
+      return;
+    }
     try {
-      if (!info.me) {
-        console.warn('[Background] No me info available for account update');
-        return;
-      }
-
       const accountId = getAccountId(info.me);
       const accountName = getAccountName(info.me);
 
@@ -661,10 +952,26 @@ class BackgroundController {
     try {
       console.log('[Background] Handling match_ended event');
 
-      // 1. 立即调用 getInfo() 获取最新快照
+      // 1. 立即切换到 postgame 模式
+      await this.openIngameWindow('postgame');
+      console.log('[Background] Switched ingame window to postgame mode');
+
+      // 2. 立即调用 getInfo() 获取最新快照
+      console.log('[Background] Calling getInfo() to fetch latest game data...');
       const latestInfo = await this.getInfoSnapshot();
       
-      // 2. 如果数据不完整，等待 onInfoUpdates2 更新（最多 5 秒）
+      if (latestInfo) {
+        console.log('[Background] getInfo() returned data:', {
+          hasMatchInfo: !!latestInfo.match_info,
+          hasRoster: !!latestInfo.roster,
+          hasMe: !!latestInfo.me,
+          rosterPlayersCount: latestInfo.roster?.players ? (Array.isArray(latestInfo.roster.players) ? latestInfo.roster.players.length : 0) : 0,
+        });
+      } else {
+        console.warn('[Background] getInfo() returned null, using cached data');
+      }
+      
+      // 3. 如果数据不完整，等待 onInfoUpdates2 更新（最多 5 秒）
       let useData: Dota2InfoUpdates | null = latestInfo;
       
       if (!latestInfo || !this.isDataComplete(latestInfo)) {
@@ -672,46 +979,72 @@ class BackgroundController {
         const cachedInfo = await this.waitForInfoUpdate(5000);
         if (cachedInfo) {
           useData = cachedInfo;
+          console.log('[Background] Using cached info after wait');
         } else {
           useData = latestInfo; // 使用不完整数据，记录警告
           console.warn('[Background] Using incomplete data after timeout');
         }
       }
 
+      // 4. 如果没有数据，尝试使用缓存（即使不完整）
       if (!useData) {
-        console.error('[Background] No data available for match_ended');
-        return;
+        const cached = dataCache.getCachedInfo();
+        if (cached) {
+          useData = cached;
+          console.warn('[Background] Using cached data as fallback');
+        } else {
+          console.error('[Background] No data available for match_ended, cannot write to database');
+          return;
+        }
       }
 
-      // 3. 验证数据完整性
+      // 5. 验证数据完整性（仅记录警告，不阻止写入）
       const validation = validateMatchData(useData);
       if (!validation.valid) {
-        console.error('[Background] Match data validation failed:', validation.errors);
-        return;
+        console.warn('[Background] Match data validation failed, but will attempt to write anyway:', validation.errors);
       }
 
-      // 4. 检查 match_id 是否已存在（避免重复记录）
-      const matchId = getMatchId(useData.match_info!);
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach((warning) => console.warn('[Background] Match data warning:', warning));
+      }
+
+      // 6. 获取或生成 match_id
+      let matchId: string | number | null = null;
+      if (useData.match_info) {
+        matchId = getMatchId(useData.match_info);
+      }
       if (!matchId) {
-        console.error('[Background] No match_id found');
-        return;
+        // 如果没有 match_id，生成一个基于时间的占位符
+        matchId = `temp_${Date.now()}`;
+        console.warn('[Background] No match_id found, using temporary ID:', matchId);
       }
 
+      // 7. 检查 match_id 是否已存在（避免重复记录）
       const exists = await checkMatchIdExists(matchId, matchesRepository);
       if (exists) {
         console.log('[Background] Match already exists, skipping:', matchId);
+        // 即使已存在，也发送消息给 ingame 窗口
+        this.sendMatchInfoToIngame(useData, eventData);
         return;
       }
 
-      // 5. 使用事务创建记录
+      // 8. 使用事务创建记录（即使数据不完整也写入）
+      console.log('[Background] Writing match and player records to database...');
       await this.createMatchRecords(useData, eventData);
+      console.log('[Background] Match and player records written successfully');
 
-      // 6. 发送 MATCH_INFO 消息给 ingame 窗口
+      // 9. 发送 MATCH_INFO 消息给 ingame 窗口
       this.sendMatchInfoToIngame(useData, eventData);
 
       console.log('[Background] Match ended handling completed');
     } catch (error) {
       console.error('[Background] Error handling match_ended:', error);
+      // 即使出错，也尝试切换到 postgame 模式
+      try {
+        await this.openIngameWindow('postgame');
+      } catch (e) {
+        console.error('[Background] Failed to open ingame window:', e);
+      }
     }
   }
 
@@ -722,10 +1055,17 @@ class BackgroundController {
     return new Promise((resolve) => {
       overwolf.games.events.getInfo((result: any) => {
         if (result && result.res) {
+          console.log('[Background] getInfo() succeeded, received data');
           resolve(result.res as Dota2InfoUpdates);
         } else {
+          console.warn('[Background] getInfo() failed or returned no data:', result);
           // 如果 getInfo 失败，尝试使用缓存
           const cached = dataCache.getCachedInfo();
+          if (cached) {
+            console.log('[Background] Using cached data as fallback');
+          } else {
+            console.warn('[Background] No cached data available');
+          }
           resolve(cached);
         }
       });
@@ -784,33 +1124,49 @@ class BackgroundController {
    * 创建比赛和玩家记录（使用事务）
    */
   private async createMatchRecords(info: Dota2InfoUpdates, eventData: any): Promise<void> {
-    const matchId = getMatchId(info.match_info!);
-    const accountId = getAccountId(info.me!);
+    let matchId: string | number | null = null;
+    if (info.match_info) {
+      matchId = getMatchId(info.match_info);
+    }
+    const accountId = info.me ? getAccountId(info.me) : null;
     const now = Math.floor(Date.now() / 1000);
 
-    if (!matchId || !accountId) {
-      throw new Error('Missing match_id or account_id');
+    // 如果没有 match_id，生成一个基于时间的占位符（允许数据不完整时写入）
+    if (!matchId) {
+      matchId = `temp_${Date.now()}`;
+      console.warn('[Background] No match_id found in createMatchRecords, using temporary ID:', matchId);
     }
+
+    const matchOwnerId = accountId ?? 'spectator';
 
     // 计算 start_time（从 end_time - duration 推算）
     const endTime = now;
-    const duration = info.match_info!.duration || 0;
+    const duration = info.match_info?.duration || 0;
     const startTime = endTime - duration;
 
     // 准备比赛记录数据
     const matchData: any = {
       match_id: matchId,
-      player_id: accountId,
+      player_id: matchOwnerId,
       game_mode: this.getGameMode(info),
-      match_mode: info.match_info!.game_mode || info.match_info!.mode || 'unknown',
+      match_mode: info.match_info?.game_mode || info.match_info?.mode || 'unknown',
       start_time: startTime,
       end_time: endTime,
-      winner: eventData.winner || 'unknown',
+      winner: eventData?.winner || 'unknown',
     };
 
     // 处理玩家数据
-    const players = info.roster!.players!;
+    let players = info.roster?.players ? [...info.roster!.players!] : [];
+    if ((!players || players.length === 0) && this._cachedPlayers) {
+      players = this._cachedPlayers;
+    }
     const playerRecords: any[] = [];
+    const scoreboardStats = this.buildScoreboardStats(info);
+
+    if (!players || players.length === 0) {
+      console.warn('[Background] No roster players available, skipping player write');
+      players = [];
+    }
 
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
@@ -820,16 +1176,22 @@ class BackgroundController {
       const playerName = getPlayerName(player);
       const heroName = getHeroName(player);
       const heroId = getHeroId(player);
+      const stats = this.resolvePlayerStats(scoreboardStats, player);
+      const kills = stats?.kills ?? this.pickNumber(player.kills) ?? 0;
+      const deaths = stats?.deaths ?? this.pickNumber(player.deaths) ?? 0;
+      const assists = stats?.assists ?? this.pickNumber(player.assists) ?? 0;
+      const gpm = stats?.gpm;
+      const xpm = stats?.xpm;
 
       // 添加到比赛记录
       (matchData as any)[`player_${playerIndex}_id`] = playerId;
-      (matchData as any)[`player_${playerIndex}_kda`] = formatKDA(
-        player.kills,
-        player.deaths,
-        player.assists
-      );
-      (matchData as any)[`player_${playerIndex}_gpm`] = player.gpm;
-      (matchData as any)[`player_${playerIndex}_xpm`] = player.xpm;
+      (matchData as any)[`player_${playerIndex}_kda`] = formatKDA(kills, deaths, assists);
+      if (gpm !== undefined) {
+        (matchData as any)[`player_${playerIndex}_gpm`] = gpm;
+      }
+      if (xpm !== undefined) {
+        (matchData as any)[`player_${playerIndex}_xpm`] = xpm;
+      }
       (matchData as any)[`player_${playerIndex}_hero_id`] = heroId;
       (matchData as any)[`player_${playerIndex}_hero_name`] = heroName;
 
@@ -854,12 +1216,13 @@ class BackgroundController {
       }
 
       // 更新账户记录（如果账户信息发生变化）
-      if (info.me) {
+      if (info.me && info.me.steam_id) {
         await this.handleAccountUpdate(info);
       }
     });
 
     console.log('[Background] Match and player records created successfully');
+    this._cachedPlayers = null;
   }
 
   /**
@@ -879,18 +1242,23 @@ class BackgroundController {
    * 发送 MATCH_INFO 消息给 ingame 窗口
    */
   private sendMatchInfoToIngame(info: Dota2InfoUpdates, eventData: any): void {
-    const matchId = getMatchId(info.match_info!);
+    let matchId: string | number | null = null;
+    if (info.match_info) {
+      matchId = getMatchId(info.match_info);
+    }
+    
+    // 如果没有 match_id，使用占位符（允许数据不完整时发送消息）
     if (!matchId) {
-      return;
+      matchId = `temp_${Date.now()}`;
     }
 
     const matchInfo = {
       type: 'MATCH_INFO',
       match_id: matchId,
-      match_mode: info.match_info!.game_mode || info.match_info!.mode || 'unknown',
-      winner: eventData.winner || 'unknown',
-      start_time: info.match_info!.start_time,
-      end_time: info.match_info!.end_time,
+      match_mode: info.match_info?.game_mode || info.match_info?.mode || 'unknown',
+      winner: eventData?.winner || 'unknown',
+      start_time: info.match_info?.start_time,
+      end_time: info.match_info?.end_time,
     };
 
     this.sendMessageToWindow(WINDOWS.INGAME, matchInfo);
@@ -903,4 +1271,5 @@ class BackgroundController {
 
 // 启动 Background Controller
 BackgroundController.instance().run();
+
 

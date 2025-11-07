@@ -12,8 +12,10 @@ import { getPlayerId, getMatchId } from './data-extraction';
 export function validateMatchData(info: Dota2InfoUpdates): {
   valid: boolean;
   errors: string[];
+  warnings: string[];
 } {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   // 检查 match_info
   if (!info.match_info) {
@@ -31,26 +33,29 @@ export function validateMatchData(info: Dota2InfoUpdates): {
     errors.push('roster.players 缺失');
   } else if (!Array.isArray(info.roster.players)) {
     errors.push('roster.players 不是数组');
-  } else if (info.roster.players.length !== 10) {
-    errors.push(`roster.players 数量不正确: ${info.roster.players.length}, 期望: 10`);
   } else {
+    if (info.roster.players.length !== 10) {
+      warnings.push(`roster.players 数量不完整: ${info.roster.players.length}, 期望: 10`);
+    }
+
     // 验证每个玩家都有必要的字段
     info.roster.players.forEach((player, index) => {
       const playerId = getPlayerId(player);
       if (!playerId || (typeof playerId === 'string' && playerId.startsWith('temp_'))) {
-        errors.push(`玩家 ${index + 1} player_id 缺失或无效`);
+        warnings.push(`玩家 ${index + 1} player_id 缺失或无效，将使用临时 ID`);
       }
     });
   }
 
-  // 检查 me 信息
+  // 检查 me 信息（观战模式可能缺失，降级为警告）
   if (!info.me) {
-    errors.push('me 信息缺失');
+    warnings.push('me 信息缺失');
   }
 
   return {
     valid: errors.length === 0,
     errors,
+    warnings,
   };
 }
 

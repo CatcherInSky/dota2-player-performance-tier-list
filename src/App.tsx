@@ -5,20 +5,26 @@
 
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { AccountSelector } from './components/desktop/AccountSelector';
 import { AppGuide } from './components/desktop/AppGuide';
 import { OverviewData } from './components/desktop/OverviewData';
 import { MatchDetail } from './components/desktop/MatchDetail';
 import { PlayerDetail } from './components/desktop/PlayerDetail';
 import { Settings } from './components/desktop/Settings';
-import { isOverwolfApp, getRunningGameInfo } from './utils/overwolf';
-import type { Account } from './db/database';
+import { Logs } from './components/desktop/Logs';
+import { isOverwolfApp, getRunningGameInfo, onMessageReceived } from './utils/overwolf';
 import { matchesRepository } from './db/repositories/matches.repository';
+
+interface LogEntry {
+  id: string;
+  timestamp: number;
+  category: string;
+  data: any;
+}
 
 function AppContent() {
   const [isGameRunning, setIsGameRunning] = useState(false);
-  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const [hasData, setHasData] = useState<boolean | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -72,8 +78,42 @@ function AppContent() {
     return () => window.removeEventListener('mousedown', handleMouseDown);
   }, [navigate]);
 
-  const handleAccountChange = (account: Account) => {
-    setCurrentAccount(account);
+  useEffect(() => {
+    if (!isOverwolfApp()) {
+      return;
+    }
+
+    const unsubscribe = onMessageReceived((message) => {
+      if (!message || typeof message !== 'object') {
+        return;
+      }
+
+      setLogs((prev) => {
+        const entry: LogEntry = {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          timestamp: message.timestamp || Date.now(),
+          category: message.type || message.category || 'message',
+          data: message,
+        };
+        const next = [...prev, entry];
+        if (next.length > 500) {
+          next.splice(0, next.length - 500);
+        }
+        return next;
+      });
+
+      if (message.type === 'NAVIGATE_TO_PLAYER' && message.playerId) {
+        navigate(`/player/${message.playerId}`);
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [navigate]);
+
+  const handleClearLogs = () => {
+    setLogs([]);
   };
 
   // 根据状态决定显示哪个组件
@@ -97,9 +137,6 @@ function AppContent() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-bold">Dota 2 玩家表现评价</h1>
-            {isGameRunning && (
-              <AccountSelector onAccountChange={handleAccountChange} />
-            )}
           </div>
           
           <nav className="flex items-center gap-2">
@@ -128,6 +165,12 @@ function AppContent() {
             >
               设置
             </button>
+            <button
+              onClick={() => navigate('/logs')}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
+            >
+              日志
+            </button>
           </nav>
         </div>
       </header>
@@ -137,10 +180,11 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
           <Route path="/guide" element={<AppGuide />} />
-          <Route path="/overview" element={<OverviewData currentAccount={currentAccount} />} />
-          <Route path="/match/:matchId" element={<MatchDetail currentAccount={currentAccount} />} />
-          <Route path="/player/:playerId" element={<PlayerDetail currentAccount={currentAccount} />} />
+          <Route path="/overview" element={<OverviewData />} />
+          <Route path="/match/:matchId" element={<MatchDetail />} />
+          <Route path="/player/:playerId" element={<PlayerDetail />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/logs" element={<Logs logs={logs} onClear={handleClearLogs} />} />
         </Routes>
       </main>
     </div>

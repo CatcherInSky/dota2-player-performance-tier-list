@@ -10,7 +10,7 @@ import { playersRepository } from '../../db/repositories/players.repository';
 import type { Account, Match } from '../../db/database';
 
 interface MatchDetailProps {
-  currentAccount: Account | null;
+  currentAccount?: Account | null;
 }
 
 interface PlayerInfo {
@@ -24,7 +24,7 @@ interface PlayerInfo {
   team: 'radiant' | 'dire';
 }
 
-export function MatchDetail({ currentAccount }: MatchDetailProps) {
+export function MatchDetail({ currentAccount = null }: MatchDetailProps) {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const [match, setMatch] = useState<Match | null>(null);

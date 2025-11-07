@@ -11,7 +11,7 @@ import { ratingsRepository } from '../../db/repositories/ratings.repository';
 import type { Account, Player, Match, Rating } from '../../db/database';
 
 interface PlayerDetailProps {
-  currentAccount: Account | null;
+  currentAccount?: Account | null;
 }
 
 interface PlayerStats {
@@ -24,7 +24,7 @@ interface PlayerStats {
   favoriteHeroes: { heroId: number; heroName: string; count: number }[];
 }
 
-export function PlayerDetail({ currentAccount }: PlayerDetailProps) {
+export function PlayerDetail({ currentAccount = null }: PlayerDetailProps) {
   const { playerId } = useParams<{ playerId: string }>();
   const [player, setPlayer] = useState<Player | null>(null);
   const [stats, setStats] = useState<PlayerStats | null>(null);
