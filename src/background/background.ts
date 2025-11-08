@@ -20,6 +20,7 @@ interface ScoreboardStats {
   xpm?: number;
 }
 import type { Dota2InfoUpdates } from '../types/dota2-gep';
+import { Dota2MatchState } from '../types/dota2-gep';
 
 /**
  * Overwolf API 类包装器
@@ -141,10 +142,6 @@ const WINDOWS = {
 const DOTA2_GAME_ID = 7314;
 
 // Dota 2 游戏状态
-enum Dota2GameState {
-  STRATEGY_TIME = 'DOTA_GAMERULES_STATE_STRATEGY_TIME',
-  POST_GAME = 'DOTA_GAMERULES_STATE_POST_GAME',
-}
 
 class BackgroundController {
   private static _instance: BackgroundController;
@@ -299,10 +296,8 @@ class BackgroundController {
     // 根据 Overwolf documentation, these are the key features we need for Dota 2
     const requiredFeatures = [
       'game_state',
+      'game_state_changed',
       'match_state_changed',
-      'roster',
-      'match_info',
-      'me',
       'match_ended',
       'kill',
       'assist',
@@ -310,7 +305,11 @@ class BackgroundController {
       'cs',
       'xpm',
       'gpm',
-      'gold'
+      'gold',
+      'hero_leveled_up',
+      'match_info',
+      'roster',
+      'me',
     ];
 
     overwolf.games.events.setRequiredFeatures(requiredFeatures, (result: overwolf.games.events.SetRequiredFeaturesResult) => {
@@ -800,9 +799,9 @@ class BackgroundController {
       return;
     }
 
-    if (normalized === Dota2GameState.STRATEGY_TIME || normalized === Dota2GameState.POST_GAME) {
+    if (normalized === Dota2MatchState.STRATEGY_TIME || normalized === Dota2MatchState.POST_GAME) {
       // Already handled by checks above, but keep fallback for exact matches
-      const mode = normalized === Dota2GameState.STRATEGY_TIME ? 'strategy' : 'postgame';
+      const mode = normalized === Dota2MatchState.STRATEGY_TIME ? 'strategy' : 'postgame';
       await this.openIngameWindow(mode);
       return;
     }

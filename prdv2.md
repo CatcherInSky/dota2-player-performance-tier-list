@@ -2,9 +2,13 @@
 
 api 文档
 https://dev.overwolf.com/ow-native/reference/ow-sdk-introduction
-https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2
 https://dev.overwolf.com/ow-native/reference/ow-api-overview
+
+https://dev.overwolf.com/ow-native/reference/games/events
+
+https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2
 https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro
+https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-app-master
 
 官方 demo 仓库和编译后代码
 https://github.com/overwolf/front-app
@@ -156,7 +160,6 @@ src/types/dota2-gep.ts
 | ------------------- | ----------------- | ---------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | uuid                | 唯一标识符        | string           | 应用生成                                                                                           | -                                     | UUID v4，主键                                                                                                                                                                                   |
 | match_id            | 比赛 ID           | string \| number | `onInfoUpdates2.info.match_info.pseudo_match_id` 或 `onNewEvents.game_state_changed.data.match_id` | -                                     | GEP 提供 `pseudo_match_id` 而非 `match_id`，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#match_info)                                                |
-| player_id           | 当前玩家 ID       | string \| number | `onInfoUpdates2.info.me.steam_id`                                                                  | -                                     | 发起记录的玩家 Steam ID，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#me)                                                                           |
 | game_mode           | 游戏模式          | string           | `onInfoUpdates2.info.game_state` 或 `onInfoUpdates2.info.game.game_state`                          | `'playing' \| 'spectating' \| 'idle'` | 是否在游戏中或观战中，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#game_state_changed)                                                              |
 | match_mode          | 比赛模式          | string           | `onInfoUpdates2.info.match_info.game_mode`                                                         | `Dota2GameMode`                       | AllPick/AllPickRanked/SingleDraft 等，见类型定义，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#match_info)                                          |
 | start_time          | 开始时间          | number           | `onNewEvents.match_ended` 触发时从 `end_time - match_info.duration` 推算                           | -                                     | GEP 文档未明确提供 start_time，需从 end_time - duration 推算，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#match_info)                              |
@@ -222,17 +225,6 @@ src/types/dota2-gep.ts
 | player_8_hero_id    | 8 号玩家英雄 ID   | number           | `onInfoUpdates2.info.roster.players[7].hero_id`                                                    | -                                     | 英雄 ID                                                                                                                                                                                         |
 | player_9_hero_id    | 9 号玩家英雄 ID   | number           | `onInfoUpdates2.info.roster.players[8].hero_id`                                                    | -                                     | 英雄 ID                                                                                                                                                                                         |
 | player_10_hero_id   | 10 号玩家英雄 ID  | number           | `onInfoUpdates2.info.roster.players[9].hero_id`                                                    | -                                     | 英雄 ID                                                                                                                                                                                         |
-| player_1_hero_name  | 1 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[0].hero` 或 `heroName`                                         | -                                     | 英雄名称，如 'npc_dota_hero_axe'，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#roster)                                                              |
-| player_2_hero_name  | 2 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[1].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_3_hero_name  | 3 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[2].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_4_hero_name  | 4 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[3].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_5_hero_name  | 5 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[4].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_6_hero_name  | 6 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[5].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_7_hero_name  | 7 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[6].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_8_hero_name  | 8 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[7].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_9_hero_name  | 9 号玩家英雄名称  | string           | `onInfoUpdates2.info.roster.players[8].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| player_10_hero_name | 10 号玩家英雄名称 | string           | `onInfoUpdates2.info.roster.players[9].hero` 或 `heroName`                                         | -                                     | 英雄名称                                                                                                                                                                                        |
-| hero_pick_order     | 英雄选择顺序      | string           | 根据 `onInfoUpdates2.info.roster.players[].team_slot` 或 `index` 推断，或通过监听选人阶段事件记录  | -                                     | **此版本不使用** - JSON 数组，记录 10 个玩家按选择顺序的 player_id，GEP 文档未明确提供，需通过监听选人阶段（`DOTA_GAMERULES_STATE_HERO_SELECTION`）的 `onInfoUpdates2` 事件记录，此版本暂不实现 |
 
 ### 玩家表 (players)
 
@@ -270,43 +262,6 @@ src/types/dota2-gep.ts
 | first_seen     | 第一次遇到 | number           | 应用记录首次遇到时间                                                         | -        | Unix 时间戳（秒）                                                                                                                                                                                                                      |
 | last_seen      | 最后遇到   | number           | 应用记录最后遇到时间                                                         | -        | Unix 时间戳（秒），每次遇到更新                                                                                                                                                                                                        |
 
-### 账户表 (accounts)
-
-**数据更新策略（优化方案）：**
-
-通过 `onInfoUpdates2.info.me` 数据触发（应用打开时、开始 Dota 2 时），对当前账户执行以下操作：
-
-1. **根据 `account_id` 查找记录**：
-
-   - 从 `onInfoUpdates2.info.me.steam_id` 获取 `account_id`
-   - 从 `onInfoUpdates2.info.me.name` 获取 `name`
-   - 在 `accounts` 表中根据 `account_id` 查询是否存在
-
-2. **如果未找到记录（新增）**：
-
-   - 生成新的 `uuid`
-   - 设置 `account_id` = 从 GEP 获取的账户 ID
-   - 设置 `name` = 从 GEP 获取的账户名称
-   - 设置 `created_at` = 当前时间戳
-   - 设置 `updated_at` = 当前时间戳
-
-3. **如果找到记录（更新）**：
-   - 如果 `name` 发生变化，将旧的 `name` 记录到历史（可选：如果 accounts 表有 `previous_names` 字段）
-   - 更新 `name` = 从 GEP 获取的最新账户名称
-   - 更新 `updated_at` = 当前时间戳
-
-**获取当前账户**：
-
-- 根据 `account_id` 查询记录，按 `updated_at` 降序排序，取第一条即为当前账户
-- 如果同一 `account_id` 有多条记录（历史方案遗留），按 `updated_at` 降序排序，取第一条
-
-| 名称       | 含义       | 类型             | 获取方式                          | 枚举类型 | 其他备注                                                                                                                                                                                                                                         |
-| ---------- | ---------- | ---------------- | --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| uuid       | 唯一标识符 | string           | 应用生成                          | -        | UUID v4，主键                                                                                                                                                                                                                                    |
-| account_id | 账户 ID    | string \| number | `onInfoUpdates2.info.me.steam_id` | -        | Steam Account ID，唯一标识账户。**注意**：本质上与 `players.player_id` 相同，都是 Steam Account ID，只是在不同上下文中使用不同名称（账户 vs 玩家），参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#me) |
-| name       | 账户名称   | string           | `onInfoUpdates2.info.me.name`     | -        | 账户当前游戏内昵称，参考 [文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2#me)                                                                                                                                 |
-| created_at | 创建时间   | number           | 应用记录                          | -        | Unix 时间戳（秒）                                                                                                                                                                                                                                |
-| updated_at | 最后使用   | number           | 应用记录                          | -        | Unix 时间戳（秒），每次检测到该账户时更新                                                                                                                                                                                                        |
 
 ### 评分表 (ratings)
 
@@ -1130,3 +1085,22 @@ meinfo 里面没有steam_id 暂时移除account表相关逻辑 移除账号选�
 1 没有将ingame修改为评价组件
 2 没有出发player和match往数据库的写入
 3 getinfo疑似没有获取到数据
+
+## 前进后退功能混乱
+
+## tab（）数量逻辑有误
+
+# ingame评价页面弹出的时候就先写入3分的评价 然后修改
+
+# 新数据流
+
+## BackgroundController优化
+1. 实例化方法太蠢了 直接new不行吗 instance是多少年前的写法了
+2. OWWindow OWHotkeys OWGameListener这三个类集成进backgroundcontroller的方法也是傻逼，用的多少年前的写法，还bind，能不能与时俱进，解耦就解耦的彻底一点，直接拆分文件
+3. 初始化事件流程应该是注册热键 监听游戏事件 打开desktop窗口，判断是否打开dota2设置一个变量，然后监听游戏运行状态来修改这个变量
+4. 如果dota2运行中，就开始监听游戏事件，dota2关闭，就取消监听，关闭ingame打开desktop
+5. 游戏事件监听，就是5秒间隔轮询getinfo，获取到的数据以matchid为标识缓存起来，数据不断merge迭代，同时监听多个REQUIRED_FEATURES中的事件
+6. match_state === DOTA_GAMERULES_STATE_STRATEGY_TIME || DOTA_GAMERULES_STATE_GAME_IN_PROGRESS 的时候，创建player和match数据库记录（同一个局比赛只会创建一次），此时视作比赛开始，弹出ingame展示玩家数据
+7. game_state === game_over此时视作比赛结束，更新match数据库记录，弹出ingame展示评分，然后清除缓存
+8. 按照这个逻辑优化background，删除大部分多余冗余的代码，并且合理打印数据作为参考（轮询时间不要太密集打印）
+9. 不需要一个单独的datacached文件处理缓存的变化

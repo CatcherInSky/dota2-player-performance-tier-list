@@ -82,7 +82,8 @@ declare namespace overwolf {
 
   namespace games {
     interface GameInfo {
-      id: number;
+      id?: number;
+      classId?: number;
       isRunning: boolean;
       title: string;
       width: number;
@@ -92,12 +93,13 @@ declare namespace overwolf {
     interface RunningGameInfo {
       isRunning: boolean;
       id?: number;
+      classId?: number;
       title?: string;
       gameInfo?: GameInfo;
     }
 
     interface GameInfoUpdatedEvent {
-      gameInfo?: GameInfo;
+      gameInfo?: GameInfo & { gameInfo?: GameInfo };
       runningChanged?: boolean;
       gameChanged?: boolean;
     }
@@ -116,8 +118,15 @@ declare namespace overwolf {
     };
 
     namespace events {
+      interface ErrorEvent {
+        error?: string;
+        reason?: string;
+      }
+
       interface SetRequiredFeaturesResult {
         success: boolean;
+        error?: string | null;
+        status?: string;
         supportedFeatures: string[];
       }
 
@@ -144,9 +153,12 @@ declare namespace overwolf {
         callback: (result: SetRequiredFeaturesResult) => void
       ): void;
 
-      function getInfo(
-        callback: (result: any) => void
-      ): void;
+      function getInfo(callback: (result: any) => void): void;
+
+      const onError: {
+        addListener(callback: (event: ErrorEvent) => void): void;
+        removeListener(callback: (event: ErrorEvent) => void): void;
+      };
 
       const onNewEvents: {
         addListener(callback: (event: NewGameEventsEvent) => void): void;

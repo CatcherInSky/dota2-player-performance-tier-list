@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "move": "mkdir -p \"/mnt/c/Users/zhang/Documents/overwolf develop/dota\" && cp -r dist/. \"/mnt/c/Users/zhang/Documents/overwolf develop/dota\"",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },

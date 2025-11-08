@@ -1,36 +1,44 @@
 // Dota 2 GEP data types used by Overwolf
 
-export type Dota2GameState =
-  | "playing"
-  | "spectating"
-  | "idle"
-  | "loading"
-  | "menu"
-  | "unknown";
+export enum Dota2GameState {
+  PLAYING = "playing",
+  SPECTATING = "spectating",
+  IDLE = "idle",
+  LOADING = "loading",
+  MENU = "menu",
+  UNKNOWN = "unknown",
+  GAME_OVER = "game_over",
+}
 
-export type Dota2MatchState =
-  | "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD"
-  | "DOTA_GAMERULES_STATE_HERO_SELECTION"
-  | "DOTA_GAMERULES_STATE_STRATEGY_TIME"
-  | "DOTA_GAMERULES_STATE_PRE_GAME"
-  | "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"
-  | "DOTA_GAMERULES_STATE_POST_GAME"
-  | "DOTA_GAMERULES_STATE_TEAM_SHOWCASE"
-  | "UNKNOWN";
+export enum Dota2MatchState {
+  WAIT_FOR_PLAYERS_TO_LOAD = "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD",
+  HERO_SELECTION = "DOTA_GAMERULES_STATE_HERO_SELECTION",
+  STRATEGY_TIME = "DOTA_GAMERULES_STATE_STRATEGY_TIME",
+  PRE_GAME = "DOTA_GAMERULES_STATE_PRE_GAME",
+  GAME_IN_PROGRESS = "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
+  POST_GAME = "DOTA_GAMERULES_STATE_POST_GAME",
+  TEAM_SHOWCASE = "DOTA_GAMERULES_STATE_TEAM_SHOWCASE",
+  UNKNOWN = "UNKNOWN",
+}
 
-export type Dota2Team = "radiant" | "dire" | "unknown";
+export enum Dota2Team {
+  RADIANT = "radiant",
+  DIRE = "dire",
+  UNKNOWN = "unknown",
+}
 
-export type Dota2GameMode =
-  | "AllPick"
-  | "AllPickRanked"
-  | "SingleDraft"
-  | "RandomDraft"
-  | "AllRandom"
-  | "LeastPlayed"
-  | "LimitedHeroes"
-  | "CaptainsMode"
-  | "CaptainsDraft"
-  | "unknown";
+export enum Dota2GameMode {
+  ALL_PICK = "AllPick",
+  ALL_PICK_RANKED = "AllPickRanked",
+  SINGLE_DRAFT = "SingleDraft",
+  RANDOM_DRAFT = "RandomDraft",
+  ALL_RANDOM = "AllRandom",
+  LEAST_PLAYED = "LeastPlayed",
+  LIMITED_HEROES = "LimitedHeroes",
+  CAPTAINS_MODE = "CaptainsMode",
+  CAPTAINS_DRAFT = "CaptainsDraft",
+  UNKNOWN = "unknown",
+}
 
 export interface Dota2RosterPlayer {
   playerId?: string | number; // unified id we compute when possible
