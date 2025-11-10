@@ -23,6 +23,7 @@ export interface BackgroundApi {
     toggleDesktop(): Promise<void>
     showIngame(data?: unknown): Promise<void>
     hideIngame(): Promise<void>
+    minimizeIngame(): Promise<void>
     dragIngame(): Promise<void>
   }
   data: {

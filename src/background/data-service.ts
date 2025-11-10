@@ -15,17 +15,26 @@ import { Logger } from '../shared/utils/logger'
 
 const DEFAULT_PAGE_SIZE = 20
 
+interface UpsertOptions {
+  allowCreate?: boolean
+}
+
 export class DataService {
   private logger = new Logger({ namespace: 'DataService' })
 
-  async ensureMatchRecord(state: GlobalMatchData): Promise<MatchRecord | null> {
+  async upsertMatchRecord(state: GlobalMatchData, options: UpsertOptions = {}): Promise<MatchRecord | null> {
+    const { allowCreate = true } = options
     const matchId = state.match_info.pseudo_match_id
     if (!matchId) {
-      this.logger.warn('Cannot ensure match record without match_id')
+      this.logger.debug('Skip match upsert; no match_id yet')
       return null
     }
 
     const existing = await db.matches.where('matchId').equals(matchId).first()
+    if (!existing && !allowCreate) {
+      return null
+    }
+
     const timestamp = Date.now()
     const matchRecord: MatchRecord = {
       uuid: existing?.uuid ?? generateId(),
@@ -45,7 +54,7 @@ export class DataService {
   }
 
   async finalizeMatch(state: GlobalMatchData): Promise<MatchRecord | null> {
-    const match = await this.ensureMatchRecord(state)
+    const match = await this.upsertMatchRecord(state, { allowCreate: true })
     if (!match) return null
 
     match.updatedAt = Date.now()

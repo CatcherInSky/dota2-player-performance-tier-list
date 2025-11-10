@@ -69,6 +69,7 @@ export class BackgroundApp {
         toggleDesktop: () => this.windowManager.toggleDesktop(),
         showIngame: (data?: unknown) => this.windowManager.showIngame(data),
         hideIngame: () => this.windowManager.hide('ingame'),
+        minimizeIngame: () => this.windowManager.minimize('ingame'),
         dragIngame: () => this.windowManager.dragMove('ingame'),
       },
       data: {
@@ -113,6 +114,14 @@ export class BackgroundApp {
     }
   }
 
+  private createIngamePayload(mode: 'history' | 'editor') {
+    return {
+      mode,
+      state: this.matchTracker.getState(),
+      match: this.currentMatch,
+    }
+  }
+
   private listenersRegistered = false
 
   private registerGameListeners() {
@@ -144,7 +153,7 @@ export class BackgroundApp {
   private handleInfoUpdate(event: { feature: string; info: unknown }) {
     this.matchTracker.handleInfoUpdate(event as any)
     const state = this.matchTracker.getState()
-    void this.dataService.ensureMatchRecord(state).then((match: MatchRecord | null) => {
+    void this.dataService.upsertMatchRecord(state, { allowCreate: false }).then((match: MatchRecord | null) => {
       this.currentMatch = match
       backgroundEventBus.emit('match:update', { match, state })
     })
@@ -158,11 +167,12 @@ export class BackgroundApp {
       const fallbackId = `match-${Date.now()}`
       this.matchTracker.upsertMatchId(fallbackId)
 
-      void this.dataService.ensureMatchRecord(state).then(async (match: MatchRecord | null) => {
+      void this.dataService.upsertMatchRecord(state, { allowCreate: true }).then(async (match: MatchRecord | null) => {
         this.currentMatch = match
         await this.dataService.syncPlayers(state)
+        await this.dataService.upsertMatchRecord(state, { allowCreate: false })
         backgroundEventBus.emit('match:start', { match, state })
-        await this.windowManager.showIngame({ mode: 'history', state, match })
+        await this.windowManager.showIngame(this.createIngamePayload('history'))
       })
     } else if (signal === 'end') {
       void this.dataService.finalizeMatch(state).then(async (match: MatchRecord | null) => {
@@ -173,11 +183,11 @@ export class BackgroundApp {
           await this.dataService.ensureCommentPlaceholders(matchId, state.roster.players)
         }
         backgroundEventBus.emit('match:end', { match, state })
-        await this.windowManager.showIngame({ mode: 'editor', state, match })
+        await this.windowManager.showIngame(this.createIngamePayload('editor'))
         this.matchTracker.reset()
       })
     } else {
-      void this.dataService.ensureMatchRecord(state).then((match: MatchRecord | null) => {
+      void this.dataService.upsertMatchRecord(state, { allowCreate: false }).then((match: MatchRecord | null) => {
         this.currentMatch = match
         backgroundEventBus.emit('match:update', { match, state })
       })
@@ -202,10 +212,22 @@ export class BackgroundApp {
   private registerHotkeys() {
     this.overwolf?.settings?.hotkeys?.onPressed?.addListener((event) => {
       if (event.name === 'toggle_windows') {
-        void this.windowManager.toggleDesktop()
+        const desktopVisible = this.windowManager.isVisible('desktop')
+        const ingameVisible = this.windowManager.isVisible('ingame')
+        if (desktopVisible || ingameVisible) {
+          void this.windowManager.hideAll()
+        } else {
+          void this.windowManager.show('desktop')
+          void this.windowManager.showIngame(this.createIngamePayload('history'))
+        }
       }
+
       if (event.name === 'toggle_ingame') {
-        void this.windowManager.toggle('ingame')
+        if (this.windowManager.isVisible('ingame')) {
+          void this.windowManager.hide('ingame')
+        } else {
+          void this.windowManager.showIngame(this.createIngamePayload('history'))
+        }
       }
     })
   }

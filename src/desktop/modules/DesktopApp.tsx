@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BrowserRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type {
   CommentFilters,
   CommentWithPlayer,
@@ -11,6 +11,7 @@ import type {
 import type { CommentRecord, MatchRecord } from '../../shared/types/database'
 import type { BackgroundApi } from '../../shared/api/background'
 import { useBackgroundApi } from '../../shared/hooks/useBackgroundApi'
+import { useBackgroundEvents } from '../../shared/hooks/useBackgroundEvents'
 import { useI18n } from '../../shared/i18n'
 import type { GlobalMatchData } from '../../shared/types/dota2'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../shared/ui/tabs'
@@ -60,7 +61,7 @@ function DesktopShell() {
         <button className="btn" onClick={() => navigate(1)}>
           {t('nav.forward')}
         </button>
-        <button className="btn" onClick={() => navigate('/')}>
+        <button className="btn" onClick={() => navigate('/home')}>
           {t('nav.home')}
         </button>
         <div className="flex-1 text-center text-sm text-slate-400">{location.pathname}</div>
@@ -70,7 +71,8 @@ function DesktopShell() {
       </header>
       <main className="flex-1 overflow-hidden">
         <Routes>
-          <Route path="/" element={<HomePage api={api} />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage api={api} />} />
           <Route path="/matches/:matchId" element={<MatchDetailPage api={api} />} />
           <Route path="/players/:playerId" element={<PlayerDetailPage api={api} />} />
         </Routes>
@@ -91,38 +93,47 @@ function HomePage({ api }: { api: BackgroundApi | undefined }) {
   const [players, setPlayers] = useState<PaginatedResult<PlayerWithStats> | undefined>(undefined)
   const [comments, setComments] = useState<PaginatedResult<CommentWithPlayer> | undefined>(undefined)
 
-  useEffect(() => {
+  const reloadMatches = useCallback(() => {
     if (!api) return
-    let cancelled = false
-    api.data.getMatches(matchFilters).then((result) => {
-      if (!cancelled) setMatches(result)
-    })
-    return () => {
-      cancelled = true
-    }
+    api.data.getMatches(matchFilters).then((result) => setMatches(result))
   }, [api, matchFilters])
 
-  useEffect(() => {
+  const reloadPlayers = useCallback(() => {
     if (!api) return
-    let cancelled = false
-    api.data.getPlayers(playerFilters).then((result) => {
-      if (!cancelled) setPlayers(result)
-    })
-    return () => {
-      cancelled = true
-    }
+    api.data.getPlayers(playerFilters).then((result) => setPlayers(result))
   }, [api, playerFilters])
 
-  useEffect(() => {
+  const reloadComments = useCallback(() => {
     if (!api) return
-    let cancelled = false
-    api.data.getComments(commentFilters).then((result) => {
-      if (!cancelled) setComments(result)
-    })
-    return () => {
-      cancelled = true
-    }
+    api.data.getComments(commentFilters).then((result) => setComments(result))
   }, [api, commentFilters])
+
+  useEffect(() => {
+    reloadMatches()
+  }, [reloadMatches])
+
+  useEffect(() => {
+    reloadPlayers()
+  }, [reloadPlayers])
+
+  useEffect(() => {
+    reloadComments()
+  }, [reloadComments])
+
+  useBackgroundEvents(api, 'match:start', () => {
+    reloadMatches()
+    reloadPlayers()
+  })
+
+  useBackgroundEvents(api, 'match:update', () => {
+    reloadMatches()
+  })
+
+  useBackgroundEvents(api, 'match:end', () => {
+    reloadMatches()
+    reloadPlayers()
+    reloadComments()
+  })
 
   const renderMatches = () => (
     <div className="space-y-4">

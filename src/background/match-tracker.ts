@@ -100,7 +100,13 @@ export class MatchTracker {
       }
       case 'roster': {
         const playersJson = update.info.roster?.players
-        const players = safeJsonParse<Dota2Player[]>(playersJson ?? '')
+        const parsed = safeJsonParse<unknown>(playersJson ?? '')
+        let players: Dota2Player[] | undefined
+        if (Array.isArray(parsed)) {
+          players = parsed as Dota2Player[]
+        } else if (parsed && typeof parsed === 'object') {
+          players = Object.values(parsed as Record<string, Dota2Player>)
+        }
         if (players) {
           this.state.roster.players = players.map((player) => {
             const rawTeam = player.team

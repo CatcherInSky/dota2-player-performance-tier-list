@@ -522,3 +522,26 @@ id
 
 # 注意
 检查依赖库，使用商业友好协议的依赖
+
+
+# 问题修复
+1. 在维护全局数据对线的时候，应该更新比赛表记录而不是创建比赛表记录
+2. 检查manifest.json 对照https://dev.overwolf.com/ow-native/reference/manifest/manifest-json，理论上 调整窗口大小、最小化窗口等功能可以在上面配置 而不需要开发
+3. ingame的关闭按钮，应该是最小化而不是关闭页面，可以通过热键重新显示
+
+4 接收到开始信号 ingame没有自动弹出
+5. 使用热键只打开desktop 没有打开ingame，逻辑是，如果有desktop或者有ingame，按快捷键隐藏全部，如果都没有，则打开全部
+6. 主页的数据要实时刷新
+7. background.js:7 [DataService] Cannot ensure match record without match_id 为什么
+后续[BackgroundApp] onInfoUpdates2 Objectfeature: "match_info"info: match_info: {pseudo_match_id: '8551763011'}[[Prototype]]: Object[[Prototype]]: Object
+是有pseudo_match_id的
+
+8. desktop打开应该在主页
+9. ingame尺寸太小 和manifest中不一致
+10. 比赛详情中 玩家记录为空
+
+
+12 desktop打开应该在home
+13. 接收到开始信号 ingame还是没有自动弹出
+14. ingame评价组件应该是自动保存的 不需要手动点击保存按钮
+15. desktop和ingame数据应该自动刷新

@@ -16,6 +16,7 @@ interface PlayerViewModel {
   comment?: string
   score?: number
   history: CommentWithPlayer[]
+  status?: string
 }
 
 export function IngameApp() {
@@ -74,21 +75,44 @@ export function IngameApp() {
     setMode((prev) => (prev === 'history' ? 'editor' : 'history'))
   }
 
-  const handleSave = async (player: PlayerViewModel) => {
+  const handleCommentChange = async (playerId: string, value: string) => {
+    setPlayers((prev) => prev.map((item) => (item.playerId === playerId ? { ...item, comment: value } : item)))
+    await persistChange(playerId, { comment: value })
+  }
+
+  const handleScoreChange = async (playerId: string, value: number) => {
+    setPlayers((prev) => prev.map((item) => (item.playerId === playerId ? { ...item, score: value } : item)))
+    await persistChange(playerId, { score: value })
+  }
+
+  const persistChange = async (playerId: string, patch: { score?: number; comment?: string }) => {
     if (!api || !match) return
+    const player = players.find((p) => p.playerId === playerId)
+    if (!player) return
+    const payload = {
+      matchId: match.matchId,
+      playerId,
+      score: patch.score ?? player.score ?? 3,
+      comment: patch.comment ?? player.comment ?? '',
+    }
+    setPlayers((prev) =>
+      prev.map((item) => (item.playerId === playerId ? { ...item, status: t('toast.saving') } : item)),
+    )
     try {
-      const record = await api.data.saveComment({
-        matchId: match.matchId,
-        playerId: player.playerId,
-        score: player.score ?? 3,
-        comment: player.comment ?? '',
-      })
-      setStatus(t('toast.saved'))
+      const record = await api.data.saveComment(payload)
       setPlayers((prev) =>
-        prev.map((item) => (item.playerId === player.playerId ? { ...item, comment: record.comment, score: record.score } : item)),
+        prev.map((item) =>
+          item.playerId === playerId
+            ? { ...item, score: record.score, comment: record.comment, status: t('toast.saved') }
+            : item,
+        ),
       )
+      setStatus(t('toast.saved'))
     } catch (error) {
       console.error(error)
+      setPlayers((prev) =>
+        prev.map((item) => (item.playerId === playerId ? { ...item, status: t('toast.failed') } : item)),
+      )
       setStatus(t('toast.failed'))
     }
   }
@@ -136,7 +160,7 @@ export function IngameApp() {
               score={player.score ?? 3}
               labels={ratingLabels}
               onChange={(score) =>
-                setPlayers((prev) => prev.map((item) => (item.playerId === player.playerId ? { ...item, score } : item)))
+                handleScoreChange(player.playerId, score)
               }
             />
             <textarea
@@ -144,16 +168,12 @@ export function IngameApp() {
               placeholder={t('ingame.comment.placeholder')}
               value={player.comment ?? ''}
               onChange={(event) =>
-                setPlayers((prev) =>
-                  prev.map((item) => (item.playerId === player.playerId ? { ...item, comment: event.target.value } : item)),
-                )
+                handleCommentChange(player.playerId, event.target.value)
               }
             />
-            <div className="flex justify-end gap-2">
-              <button className="btn" onClick={() => handleSave(player)}>
-                {t('ingame.save')}
-              </button>
-            </div>
+            {player.status && (
+              <div className="text-right text-xs text-slate-400">{player.status}</div>
+            )}
           </div>
         ))}
       </div>
@@ -164,7 +184,7 @@ export function IngameApp() {
   return (
     <div className="flex h-screen flex-col bg-slate-900/90 p-4 text-slate-50 shadow-xl">
       <div className="mb-4 flex items-center gap-2 text-sm text-slate-200">
-        <button className="btn-secondary" onClick={() => api?.windows.hideIngame()}>
+        <button className="btn-secondary" onClick={() => api?.windows.minimizeIngame()}>
           {t('ingame.close')}
         </button>
         <button className="btn-secondary" onClick={() => api?.windows.dragIngame()}>
@@ -252,7 +272,9 @@ function StarRating({
           </button>
         ))}
       </div>
-      <div className="text-sm text-slate-300">{labels[score] ?? ''}</div>
+      <div className="text-sm text-slate-300" title={labels[score] ?? ''}>
+        {labels[score] ?? ''}
+      </div>
     </div>
   )
 }

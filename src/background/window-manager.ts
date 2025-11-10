@@ -8,6 +8,10 @@ interface WindowState {
   isVisible: boolean
 }
 
+const DEFAULT_WINDOW_SIZES: Partial<Record<WindowName, { width: number; height: number }>> = {
+  desktop: { width: 1280, height: 720 },
+}
+
 interface ObtainWindowResult {
   success?: boolean
   status?: string
@@ -39,6 +43,7 @@ export class WindowManager {
     if (!windowInfo) return
 
     await this.restoreWindow(windowInfo.id)
+    await this.applyDefaultSize(name, windowInfo.id)
     if (bringToFront) {
       await this.bringToFront(windowInfo.id)
     }
@@ -101,6 +106,14 @@ export class WindowManager {
     return this.windows.get(name)
   }
 
+  isVisible(name: WindowName) {
+    return this.windows.get(name)?.isVisible ?? false
+  }
+
+  async hideAll() {
+    await Promise.all([this.hide('desktop'), this.hide('ingame')])
+  }
+
   async dragMove(name: WindowName) {
     if (!isOverwolfAvailable()) return
     this.overwolf?.windows.dragMove(name)
@@ -112,6 +125,15 @@ export class WindowManager {
       state.isVisible = isVisible
       this.windows.set(name, state)
     }
+  }
+
+  private async applyDefaultSize(name: WindowName, windowId: string) {
+    if (!isOverwolfAvailable()) return
+    const size = DEFAULT_WINDOW_SIZES[name]
+    if (!size) return
+    await new Promise<void>((resolve) => {
+      this.overwolf?.windows.changeSize(windowId, size.width, size.height, () => resolve())
+    })
   }
 
   private obtainWindow(name: WindowName): Promise<WindowInfo | null> {

@@ -54,6 +54,9 @@
         "show_in_taskbar": false,
         "mute": false,
         "disable_shadow": true,
+        "show_minimize_button": true,
+        "show_maximize_button": true,
+        "show_close_button": true,
         "size": {
           "width": 1280,
           "height": 720
@@ -61,6 +64,10 @@
         "min_size": {
           "width": 960,
           "height": 540
+        },
+        "max_size": {
+          "width": 1920,
+          "height": 1080
         },
         "start_position": {
           "top": 100,
@@ -77,9 +84,16 @@
         "mute": false,
         "disable_shadow": true,
         "in_game_only": true,
+        "show_minimize_button": true,
+        "show_maximize_button": false,
+        "show_close_button": false,
         "size": {
           "width": 960,
           "height": 540
+        },
+        "min_size": {
+          "width": 480,
+          "height": 270
         },
         "start_position": {
           "top": 100,
