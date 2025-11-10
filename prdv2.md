@@ -1,18 +1,14 @@
 # 主要参考资料
-
 api 文档
 https://dev.overwolf.com/ow-native/reference/ow-sdk-introduction
 https://dev.overwolf.com/ow-native/reference/ow-api-overview
-
 https://dev.overwolf.com/ow-native/reference/games/events
-
 https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2
 https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro
 https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-app-master
 
 官方 demo 仓库和编译后代码
 https://github.com/overwolf/front-app
-
 https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-app-master
 
 # 技术栈
@@ -30,131 +26,92 @@ https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-ap
 
 ## 数据类型
 
-src/types/dota2-gep.ts
+```
+export enum Dota2GameState {
+  PLAYING = "playing",
+  SPECTATING = "spectating",
+  IDLE = "idle",
+  LOADING = "loading",
+  MENU = "menu",
+  UNKNOWN = "unknown",
+  GAME_OVER = "game_over",
+}
+
+export enum Dota2MatchState {
+  WAIT_FOR_PLAYERS_TO_LOAD = "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD",
+  HERO_SELECTION = "DOTA_GAMERULES_STATE_HERO_SELECTION",
+  STRATEGY_TIME = "DOTA_GAMERULES_STATE_STRATEGY_TIME",
+  PRE_GAME = "DOTA_GAMERULES_STATE_PRE_GAME",
+  GAME_IN_PROGRESS = "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
+  POST_GAME = "DOTA_GAMERULES_STATE_POST_GAME",
+  TEAM_SHOWCASE = "DOTA_GAMERULES_STATE_TEAM_SHOWCASE",
+  UNKNOWN = "UNKNOWN",
+}
+
+export enum Dota2Team {
+  RADIANT = "radiant",
+  DIRE = "dire",
+  UNKNOWN = "unknown",
+}
+
+export enum Dota2GameMode {
+  ALL_PICK = "AllPick",
+  ALL_PICK_RANKED = "AllPickRanked",
+  SINGLE_DRAFT = "SingleDraft",
+  RANDOM_DRAFT = "RandomDraft",
+  ALL_RANDOM = "AllRandom",
+  LEAST_PLAYED = "LeastPlayed",
+  LIMITED_HEROES = "LimitedHeroes",
+  CAPTAINS_MODE = "CaptainsMode",
+  CAPTAINS_DRAFT = "CaptainsDraft",
+  UNKNOWN = "unknown",
+}
+
+export interface Dota2RosterPlayer {
+
+}
+
+
+export interface Dota2MatchInfo {
+
+
+}
+
+
+export interface Dota2MeInfo {
+
+}
+
+
+export interface Dota2GameInfo {
+
+}
+
+declare namespace overwolf {
+
+}
+
+```
+
+overwolf全局对象
+```
+declare namespace overwolf {
+
+}
+
+```
+
 
 ## 数据库
 
-### 数据库索引设计
+### 比赛表 (matches)
 
-为了优化查询性能，需要为以下字段创建索引：
-
-#### matches 表索引
+索引
 
 - `match_id`：唯一索引（用于快速查找比赛）
 - `player_id`：索引（用于查找某玩家的所有比赛）
 - `end_time`：索引（用于时间范围查询）
 - `match_mode`：索引（用于按模式筛选）
-
-#### players 表索引
-
-- `player_id`：唯一索引（主键）
-- `last_seen`：索引（用于排序）
-
-#### accounts 表索引
-
-- `account_id`：索引（用于查找账户）
-- `updated_at`：索引（用于获取最近使用的账户）
-
-#### ratings 表索引
-
-- `player_id`：索引（用于查找某玩家的所有评分）
-- `account_id`：索引（用于查找某账户的所有评分）
-- `match_id`：索引（用于查找某比赛的所有评分）
-- `created_at`：索引（用于时间排序）
-- 复合索引：`(player_id, account_id)` 用于查找某账户对某玩家的评分
-
-### 错误处理策略
-
-1. **数据缺失处理**：
-
-   - 如果 `match_id` 缺失：使用时间戳生成临时 ID，记录警告日志
-   - 如果玩家数据缺失：跳过该玩家，记录警告日志
-   - 如果关键字段缺失：不创建记录，记录错误日志
-
-2. **数据格式异常处理**：
-
-   - 验证字段类型（如 `match_id` 应该是 string 或 number）
-   - 验证字段范围（如 `score` 应该是 1-5）
-   - 异常数据记录到错误日志，不写入数据库
-
-3. **GEP 连接异常处理**：
-
-   - 如果 `setRequiredFeatures` 失败：记录错误，提示用户检查游戏状态
-   - 如果 `getInfo()` 失败：重试 3 次，失败后使用缓存数据
-   - 如果 `onInfoUpdates2` 长时间未更新（超过 5 分钟）：记录警告，提示用户可能的数据延迟
-
-4. **数据库操作异常处理**：
-   - IndexedDB 操作失败：记录错误，提示用户
-   - 数据写入失败：重试机制（最多 3 次），失败后保存到临时存储（localStorage），待恢复后同步
-
-**数据获取策略说明：**
-
-- **账户表**：通过 `onInfoUpdates2.info.me` 数据触发，当检测到 me 信息变化时，根据 `account_id` 判断是否需要新增或更新记录
-- **比赛表**：通过 `onNewEvents.match_ended` 事件触发，创建一条完整记录。**重要**：在 `match_ended` 事件触发时，先调用 `overwolf.games.events.getInfo()` 主动获取最新快照，确保数据同步。如果 `getInfo()` 返回的数据不完整，等待 `onInfoUpdates2` 的下一次更新（最多 5 秒超时）
-- **玩家表**：通过 `onNewEvents.match_ended` 事件触发，从最新快照的 `roster.players[]` 收集玩家数据，根据 `player_id` 查找或新增/更新记录
-- **评分表**：用户输入数据，不依赖 GEP 事件
-- **注意**：`player_X_record_id` 字段不需要存储，需要时通过 `match_id` 和 `player_X_id` 关联查询 `players` 表获取
-
-**字段获取优先级（统一标准）：**
-
-- **`player_id` 获取优先级**：`account_id` > `steamId` > `steam_id` > `steamid`
-- **`player_name` 获取优先级**：`player_name` > `playerName` > `name`
-- **所有字段获取都需要做空值检查**，如果所有变体都不存在，记录警告并使用默认值（如 `player_id` 使用临时 ID，`player_name` 使用"未知玩家"）
-
-**重要说明：Steam ID 的本质**
-
-- **`account_id`（accounts 表）** 和 **`player_id`（players 表）** 本质上都是 **Steam Account ID**
-- 它们只是在不同上下文中使用不同的字段名：
-  - `account_id`：表示"当前使用这个应用的账户"（从 `onInfoUpdates2.info.me.steam_id` 获取）
-  - `player_id`：表示"在比赛中遇到的玩家"（从 `onInfoUpdates2.info.roster.players[].account_id` 或 `steam_id` 等获取）
-- **语义区分**：使用不同名称是为了语义清晰（账户 vs 玩家），但在数据库中它们存储的是相同类型的值（Steam Account ID）
-- **特殊情况**：当用户评价自己时，`ratings` 表中的 `account_id` 和 `player_id` 可能是同一个值
-
-**比赛开始/结束判断：**
-
-- **比赛开始判断**：
-  - 通过 `onNewEvents.match_state_changed` 事件，当 `match_state` 变为 `DOTA_GAMERULES_STATE_GAME_IN_PROGRESS` 时表示比赛开始
-  - 或通过 `onInfoUpdates2.info.match_info` 中检测到 `match_id` 且比赛状态为进行中
-- **比赛结束判断**：
-  - **主要方式**：通过 `onNewEvents.match_ended` 事件触发，这是最可靠的比赛结束信号
-  - **备用方式**：通过 `onNewEvents.match_state_changed` 事件，当 `match_state` 变为 `DOTA_GAMERULES_STATE_POST_GAME` 时表示比赛结束
-  - **超时机制**：如果比赛开始后超过 2 小时未收到结束事件，视为异常结束，记录警告日志
-  - **数据完整性检查**：收集数据时验证必要字段是否存在（如 `match_id`、`roster.players` 数量是否为 10），缺失时记录警告日志，不创建不完整记录
-
-**`onInfoUpdates2` 事件说明：**
-
-- **不是循环的**，而是**事件驱动**的，当游戏内数据发生变化时 GEP 会主动推送
-- **触发时机**：游戏状态变化、比赛阶段变化、玩家数据更新（KDA/GPM/XPM 等）、阵容信息变化、比赛信息更新等
-- **触发频率**：取决于数据变化频率，通常几秒到几十秒一次（有变化时），比赛进行中可能更频繁，比赛结束后会触发最终快照
-- **使用建议**：
-  - 在 `setRequiredFeatures` 成功后立即调用 `getInfo()` 获取初始快照
-  - 订阅 `onInfoUpdates2` 监听后续更新，每次触发时缓存最新快照
-  - 在 `match_ended` 事件触发时，优先使用缓存的快照，如果缓存不存在或过期，调用 `getInfo()` 主动获取
-
-**数据一致性保证：**
-
-1. **数据快照机制**：
-
-   - 在 `match_ended` 触发时，立即调用 `getInfo()` 获取最新快照
-   - 如果 `getInfo()` 返回的数据不完整，等待 `onInfoUpdates2` 的下一次更新（最多 5 秒超时）
-   - 维护一个缓存机制：每次 `onInfoUpdates2` 更新时缓存最新数据，`match_ended` 时优先使用缓存
-
-2. **数据验证**：
-
-   - 创建 `matches` 记录前，验证必要字段是否存在（`match_id`、`roster.players` 等）
-   - 验证玩家数量是否为 10 人
-   - 验证 `match_id` 是否已存在（避免重复记录）
-
-3. **事务处理**：
-
-   - 使用 IndexedDB 事务确保 `matches`、`players`、`accounts` 表的数据一致性
-   - 如果任何一步失败，回滚所有操作，记录错误日志
-
-4. **数据修复机制**：
-   - 定期检查数据完整性（如每周一次）
-   - 发现异常数据时，记录到修复日志
-
-### 比赛表 (matches)
 
 | 名称                | 含义              | 类型             | 获取方式                                                                                           | 枚举类型                              | 其他备注                                                                                                                                                                                        |
 | ------------------- | ----------------- | ---------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -227,31 +184,10 @@ src/types/dota2-gep.ts
 | player_10_hero_id   | 10 号玩家英雄 ID  | number           | `onInfoUpdates2.info.roster.players[9].hero_id`                                                    | -                                     | 英雄 ID                                                                                                                                                                                         |
 
 ### 玩家表 (players)
+索引
 
-**数据更新策略：**
-
-通过 `onNewEvents.match_ended` 事件触发，从 `onInfoUpdates2.info.roster.players[]` 收集所有玩家数据，对每个玩家执行以下操作：
-
-1. **根据 `player_id` 查找记录**：
-
-   - 从 `onInfoUpdates2.info.roster.players[]` 获取 `player_id`，优先级：`account_id` > `steamId` > `steam_id` > `steamid`
-   - 如果所有字段都不存在，记录警告并使用临时 ID（格式：`temp_${timestamp}_${index}`）
-   - 在 `players` 表中根据 `player_id` 查询是否存在
-
-2. **如果未找到记录（新增）**：
-
-   - 生成新的 `uuid`
-   - 设置 `player_id` = 从 GEP 获取的玩家 ID（按优先级获取）
-   - 设置 `current_name` = 从 GEP 获取的玩家名称，优先级：`player_name` > `playerName` > `name`，如果都不存在则使用"未知玩家"
-   - 设置 `previous_names` = `[]`（空数组）
-   - 设置 `first_seen` = 当前时间戳（`onNewEvents.match_ended` 触发时）
-   - 设置 `last_seen` = 当前时间戳
-
-3. **如果找到记录（更新）**：
-   - 获取最新昵称，优先级：`player_name` > `playerName` > `name`
-   - 如果最新昵称与数据库中的 `current_name` 不同，将旧的 `current_name` 添加到 `previous_names` 数组（如果不存在）
-   - 更新 `current_name` = 最新昵称
-   - 更新 `last_seen` = 当前时间戳（`onNewEvents.match_ended` 触发时）
+- `player_id`：唯一索引（主键）
+- `last_seen`：索引（用于排序）
 
 | 名称           | 含义       | 类型             | 获取方式                                                                     | 枚举类型 | 其他备注                                                                                                                                                                                                                               |
 | -------------- | ---------- | ---------------- | ---------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -262,14 +198,19 @@ src/types/dota2-gep.ts
 | first_seen     | 第一次遇到 | number           | 应用记录首次遇到时间                                                         | -        | Unix 时间戳（秒）                                                                                                                                                                                                                      |
 | last_seen      | 最后遇到   | number           | 应用记录最后遇到时间                                                         | -        | Unix 时间戳（秒），每次遇到更新                                                                                                                                                                                                        |
 
+| matches      | 比赛id列表   | number           | 比赛id列表                                                         | -        | 更新matches表时写入                                                                                                                                   |
+
 
 ### 评分表 (ratings)
+
+- `player_id`：索引（用于查找某玩家的所有评分）
+- `match_id`：索引（用于查找某比赛的所有评分）
+- `created_at`：索引（用于时间排序）
 
 | 名称       | 含义       | 类型             | 获取方式                   | 枚举类型                | 其他备注                                                                                                                                                       |
 | ---------- | ---------- | ---------------- | -------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | uuid       | 唯一标识符 | string           | 应用生成                   | -                       | UUID v4，主键                                                                                                                                                  |
 | player_id  | 玩家 ID    | string \| number | 关联 `players.player_id`   | -                       | 外键，被评分的玩家                                                                                                                                             |
-| account_id | 账号 ID    | string \| number | 关联 `accounts.account_id` | -                       | 外键，发起评分的用户 Steam ID（Steam Account ID），通过查询 `accounts` 表获取当前账户的 `account_id`。**注意**：与 `player_id` 本质相同，都是 Steam Account ID |
 | match_id   | 比赛 ID    | string \| number | 关联 `matches.match_id`    | -                       | 外键，该评分对应的比赛，使用 GEP 提供的 `match_id`（`pseudo_match_id`）                                                                                        |
 | score      | 分数       | number           | 用户输入                   | `1 \| 2 \| 3 \| 4 \| 5` | 1-5 星评分                                                                                                                                                     |
 | created_at | 创建时间   | number           | 应用记录                   | -                       | Unix 时间戳（秒）                                                                                                                                              |
@@ -279,127 +220,7 @@ src/types/dota2-gep.ts
 
 ## GEP 事件监听机制
 
-根据 [Overwolf GEP 文档](https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro)，所有游戏事件（Game Events）和游戏信息更新（Game Info Updates）都由 **background 进程**监听和管理。
 
-### 事件监听方式
-
-1. **设置所需特性**（`setRequiredFeatures`）：
-
-   - 在 `background.ts` 中调用 `overwolf.games.events.setRequiredFeatures()` 订阅需要的 Game Features
-   - 必须在游戏启动后尽快调用，建议在游戏启动时立即设置
-   - 参考：[Set Required Features](https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro#set-required-features)
-
-2. **监听新游戏事件**（`onNewEvents`）：
-
-   - 在 `background.ts` 中添加 `overwolf.games.events.onNewEvents` 监听器
-   - 用于接收实时游戏事件，如 `kill`、`death`、`match_ended` 等
-   - 参考：[Listen for new Game Events](https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro#listen-for-new-game-events)
-
-3. **监听游戏信息更新**（`onInfoUpdates2`）：
-
-   - 在 `background.ts` 中添加 `overwolf.games.events.onInfoUpdates2` 监听器
-   - 用于接收游戏状态快照更新，如 `roster`、`match_info`、`me` 等
-   - 参考：[Listen for new Game Info updates](https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro#listen-for-new-game-info-updates)
-
-4. **获取当前游戏信息**（`getInfo`）：
-   - 在 `background.ts` 中调用 `overwolf.games.events.getInfo()` 主动获取当前游戏状态
-   - 建议在 `setRequiredFeatures` 成功后立即调用，获取初始快照
-   - 参考：[Obtain current Game Info](https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro#obtain-current-game-info)
-
-### 本应用使用的 GEP Features
-
-根据 [Dota 2 GEP 文档](https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2)，本应用订阅以下 Features：
-
-- `game_state`：游戏状态（playing/spectating/idle）
-- `game_state_changed`：游戏状态变化事件
-- `match_state_changed`：比赛状态变化事件
-- `roster`：玩家阵容信息
-- `match_info`：比赛信息
-- `me`：当前玩家信息
-- `match_ended`：比赛结束事件
-- `kill`、`assist`、`death`：KDA 相关事件
-- `cs`、`xpm`、`gpm`、`gold`：经济和经验相关事件
-
-## 本应用关心的事件
-
-### 1. 策略时间阶段（DOTA_GAMERULES_STATE_STRATEGY_TIME）
-
-**触发时机**：
-
-- 通过 `onNewEvents` 事件中的 `match_state_changed` 事件
-- 或通过 `onInfoUpdates2` 事件中的 `match_state_changed` 信息更新
-- 当 `match_state` 变为 `DOTA_GAMERULES_STATE_STRATEGY_TIME` 时触发
-
-**处理逻辑**：
-
-- 在 `background.ts` 的 `handleGameStateChange()` 方法中处理
-- 调用 `openIngameWindow('strategy')` 打开 ingame 窗口
-- 用于在策略时间阶段显示玩家信息，方便用户准备评分
-
-**数据收集**：
-
-- 此时可以从 `onInfoUpdates2.info.roster.players[]` 获取玩家列表
-- 用于更新 `accounts` 表（如果账户信息发生变化）
-
-### 2. 比赛结束（match_ended）
-
-**触发时机**：
-
-- 通过 `onNewEvents` 事件中的 `match_ended` 事件触发
-- 这是最可靠的比赛结束信号
-
-**处理逻辑**：
-
-- 在 `background.ts` 的 `handleGameEvent()` 方法中处理 `match_ended` 事件
-- 通过 `onInfoUpdates2` 检测到 `match_state` 变为 `DOTA_GAMERULES_STATE_POST_GAME` 时
-- 调用 `openIngameWindow('postgame')` 打开 ingame 窗口
-- 用于在比赛结束后显示比赛结果和评分界面
-
-**数据收集**：
-
-- 从 `onInfoUpdates2.info` 收集完整比赛数据，创建 `matches` 表记录
-- 从 `onInfoUpdates2.info.roster.players[]` 收集玩家数据，更新 `players` 表
-- 从 `onInfoUpdates2.info.me` 收集当前账户信息，更新 `accounts` 表
-
-### 3. 账户信息更新（me）
-
-**触发时机**：
-
-- 通过 `onInfoUpdates2` 事件中的 `me` 信息更新
-- 应用打开时、开始 Dota 2 时触发
-
-**处理逻辑**：
-
-- 在 `background.ts` 的 `onInfoUpdates2` 监听器中处理
-- 根据 `account_id` 和 `name` 判断是否需要新增 `accounts` 表记录
-- 如果账户信息发生变化，新增记录（保留历史）
-
-## 事件流程图
-
-```
-游戏启动
-  ↓
-background.ts 设置 setRequiredFeatures
-  ↓
-调用 getInfo() 获取初始快照
-  ↓
-监听 onNewEvents（实时事件）
-  ↓
-监听 onInfoUpdates2（状态快照）
-  ↓
-┌─────────────────────────────────────┐
-│ match_state_changed                 │
-│ → DOTA_GAMERULES_STATE_STRATEGY_TIME│
-│ → 打开 ingame 窗口（策略阶段）      │
-└─────────────────────────────────────┘
-  ↓
-┌─────────────────────────────────────┐
-│ match_ended 事件触发                │
-│ → DOTA_GAMERULES_STATE_POST_GAME   │
-│ → 打开 ingame 窗口（赛后）          │
-│ → 收集完整数据写入数据库            │
-└─────────────────────────────────────┘
-```
 
 # 页面
 
@@ -1099,7 +920,7 @@ meinfo 里面没有steam_id 暂时移除account表相关逻辑 移除账号选�
 2. OWWindow OWHotkeys OWGameListener这三个类集成进backgroundcontroller的方法也是傻逼，用的多少年前的写法，还bind，能不能与时俱进，解耦就解耦的彻底一点，直接拆分文件
 3. 初始化事件流程应该是注册热键 监听游戏事件 打开desktop窗口，判断是否打开dota2设置一个变量，然后监听游戏运行状态来修改这个变量
 4. 如果dota2运行中，就开始监听游戏事件，dota2关闭，就取消监听，关闭ingame打开desktop
-5. 游戏事件监听，就是5秒间隔轮询getinfo，获取到的数据以matchid为标识缓存起来，数据不断merge迭代，同时监听多个REQUIRED_FEATURES中的事件
+5. 游戏事件监听，事先setRequiredFeatures，然后就是5秒间隔轮询getinfo，获取到的数据以matchid为标识缓存起来，数据不断merge迭代，同时使用InfoUpdates2Event  和NewGameEvents 监听多个REQUIRED_FEATURES中的事件，根据数据更新缓存
 6. match_state === DOTA_GAMERULES_STATE_STRATEGY_TIME || DOTA_GAMERULES_STATE_GAME_IN_PROGRESS 的时候，创建player和match数据库记录（同一个局比赛只会创建一次），此时视作比赛开始，弹出ingame展示玩家数据
 7. game_state === game_over此时视作比赛结束，更新match数据库记录，弹出ingame展示评分，然后清除缓存
 8. 按照这个逻辑优化background，删除大部分多余冗余的代码，并且合理打印数据作为参考（轮询时间不要太密集打印）

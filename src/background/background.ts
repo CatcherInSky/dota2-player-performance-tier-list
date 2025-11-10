@@ -103,6 +103,7 @@ class OWGameListener {
 
   start() {
     overwolf.games.onGameInfoUpdated.addListener((info: overwolf.games.GameInfoUpdatedEvent) => {
+      // console.log('QQQ1onGameInfoUpdated', JSON.stringify(info))
       if (info && info.gameInfo && info.runningChanged) {
         if (info.gameInfo.isRunning) {
           this.delegate.onGameStarted?.(info);
@@ -232,6 +233,7 @@ class BackgroundController {
   private async getCurrentGameInfo() {
     return new Promise<overwolf.games.RunningGameInfo | null>((resolve) => {
       overwolf.games.getRunningGameInfo((result: overwolf.games.GetRunningGameInfoResult) => {
+        // console.log('QQQ2getRunningGameInfo', JSON.stringify(result))
         if (result && result.success && result.isRunning) {
           resolve(result as overwolf.games.RunningGameInfo);
         } else {
@@ -299,20 +301,13 @@ class BackgroundController {
       'game_state_changed',
       'match_state_changed',
       'match_ended',
-      'kill',
-      'assist',
-      'death',
-      'cs',
-      'xpm',
-      'gpm',
-      'gold',
-      'hero_leveled_up',
       'match_info',
       'roster',
       'me',
     ];
 
     overwolf.games.events.setRequiredFeatures(requiredFeatures, (result: overwolf.games.events.SetRequiredFeaturesResult) => {
+      console.log('QQQ3setRequiredFeatures', JSON.stringify(result))
       console.log('[Background] Set required features result:', result);
       console.log('[Background] Supported features:', result.supportedFeatures);
 
@@ -334,7 +329,7 @@ class BackgroundController {
     // 监听游戏事件
     overwolf.games.events.onNewEvents.addListener((events: overwolf.games.events.NewGameEventsEvent) => {
       console.log('[Background] New game events:', events);
-
+console.log('QQQ4onNewEvents', JSON.stringify(events))
       if (events && events.events) {
         for (const event of events.events) {
           this.handleGameEvent(event);
@@ -344,6 +339,7 @@ class BackgroundController {
 
     // 监听游戏信息更新
     overwolf.games.events.onInfoUpdates2.addListener((info: overwolf.games.events.InfoUpdates2Event) => {
+      console.log('QQQ5onInfoUpdates2', JSON.stringify(info))
       console.log('[Background] Game info update (full):', JSON.stringify(info, null, 2));
 
       // 处理游戏状态变化
@@ -384,6 +380,23 @@ class BackgroundController {
         this.sendPlayerInfoToIngame(info.info);
       }
     });
+
+
+    // overwolf.packages.gep.on('new-game-event', (...args) => {
+    //   console.log('QQQ6new-game-event', JSON.stringify(args))
+    //   // your code here
+    // });
+    // overwolf.packages.gep.on('new-info-update', (...args) => {
+      
+    //   console.log('QQQ7new-info-update', JSON.stringify(args))
+    //   // your code here
+    // });
+    // setInterval(async () => {
+    //   overwolf.games.events.getInfo((info) => {
+
+    //     console.log('QQQ8getInfo', JSON.stringify(info))
+    //   });
+    // }, 10000)
   }
 
   // private getCurrentGameEventsInfo() {

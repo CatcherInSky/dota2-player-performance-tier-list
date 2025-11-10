@@ -202,6 +202,27 @@ declare namespace overwolf {
       callback: (result: GetSystemInformationResult) => void
     ): void;
   }
+
+  namespace packages {
+    namespace gep {
+      type GepEventName =
+        | 'new-game-event'
+        | 'new-info-update'
+        | string;
+
+      function on(
+        event: GepEventName,
+        callback: (...args: any[]) => void
+      ): void;
+
+      function off(
+        event: GepEventName,
+        callback: (...args: any[]) => void
+      ): void;
+
+      function getInfo(gameId: number): Promise<any>;
+    }
+  }
 }
 
 // 全局声明
