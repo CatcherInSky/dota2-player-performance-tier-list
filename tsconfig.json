@@ -25,10 +25,10 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    
-    /* Type Roots */
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+
+    /* Types */
+    "types": ["@overwolf/types"]
   },
-  "include": ["src/**/*", "src/types/**/*"],
+  "include": ["src/**/*"],
   "references": []
 }

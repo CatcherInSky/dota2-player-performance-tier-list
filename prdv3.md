@@ -21,6 +21,39 @@ https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-ap
 - 打包工具：vite
 - 路由方案：React Router v6（MIT License，商业友好）
 
+## 应用架构
+### manifest.json 关键要求
+- `manifest_version` ≥ 1.1，`type` 为 `App`。版本号、`meta` 信息需与发布计划保持一致。
+- `data.start_window` 指向 background 窗口，对应 `src/background/background.html` 或 `index.html`。
+- `meta.permissions` 须声明 `Hotkeys`, `Window`, `FileSystem`, `GameInfo`，后续若需要云同步再评估开启 `Profile`, `ExtensionsIO`。
+- 在 `launch_events` 中配置 `game_launch`，`game_ids: [7314]`，确保 Dota 2 启动时打开应用。
+- 需显式设定 `externally_connectable.matches`，默认关闭第三方网页通信，降低安全风险。
+- 采用 `overwolf.front_app` 示例中的 `manifest.json` 作为基础模板，结合项目窗口需求调整。
+
+### 窗口定义约束
+- `background`：隐藏窗口，`resizable=false`，尺寸 400×400，`allow_scripts_to_close_window=true`。
+- `desktop`：桌面 UI 窗口，`transparent` + `clickthrough=false`，默认尺寸 1280×720，`in_game_only=false`。
+- `ingame`：游戏覆盖窗口，默认 960×540，`grab_focus=true`，`in_game_only=true`，需支持拖拽和透明度调节。
+- 所有窗口在 manifest 中开启 `mute=false`、`show_in_taskbar=false`、`disable_shadow=true` 以减小性能开销。
+
+### 代码结构建议
+```
+/public
+  manifest.json
+  icon.png
+/src
+  /background
+  /desktop
+  /ingame
+  /shared (hooks、数据模型、i18n)
+docs/prdv3.md（本文件，建议放置于 docs 目录统一管理）
+```
+参考 `overwolf/front-app` 项目的窗口组织和通信方式，保持构建产物与目录结构一致。
+
+### 开发与构建
+- 推荐使用 `pnpm`；如使用需开启 `--shamefully-hoist` 兼容 Overwolf runtime。
+- Overwolf Desktop Client 版本需 ≥ 0.235 以支持最新 GEP 能力；在 PRD 中体现版本检查逻辑。
+- 使用 `vite` 生成 `dist`，再由 Overwolf CLI 打包。确保 `manifest.json` 与 `dist` 中资源路径一致。
 
 # 数据库
 ## 远程数据源(暂时不用考虑)
@@ -434,6 +467,47 @@ id
 展示input comment输入框
 
 
+# Overwolf API 能力清单
+- **窗口管理**：`overwolf.windows.*` 用于创建、显示、定位窗口，包含 `dragResize`, `setPosition`, `getCurrentWindow` 等。
+- **游戏状态**：`overwolf.games.launchers.*` 可获取 Steam/Dota 2 启动与版本信息，用于辅助启动监控。
+- **热键管理**：`overwolf.settings.hotkeys` 支持动态更新热键、监听触发；manifest 中需预设默认快捷键。
+- **存储方案**：`overwolf.extensions.io`, `overwolf.settings`, IndexedDB 组合实现；background 提供统一的 CRUD service。
+- **用户配置**：`overwolf.settings.*` 读取语言、系统主题，配合 i18n 切换。
+- **日志调试**：`overwolf.extensions.log` 输出调试文件，可结合 Sentry 或自研上报（需确认许可证）。
+
+# 构建与发布要求
+- 使用 `vite build` 生成 `dist`，再通过 `overwolf-tools-cli`（参考 `front-app`）完成打包上传。
+- CI 建议：`pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm test` → `pnpm build` → `overwolf-tools-cli upload`。
+- `manifest.json` 中的 `support_email`, `legal` 等字段需提前确认，减少审核轮次。
+- 发布前在 Overwolf QA Checklist 上逐项核对：窗口锚点、热键冲突、首次启动向导、权限申请提示。
+
+# 质量保障
+- **测试**：使用 `vitest` 模拟 onNewEvents/onInfoUpdates2，验证 GlobalMatchData 合并逻辑；对 IndexedDB CRUD 编写集成测试。
+- **性能**：background CPU 占用 <5%，内存 <150MB；ingame 渲染帧率 ≥ 55fps。
+- **异常处理**：捕获所有 `overwolf` API 回调错误并写入日志，提供“导出调试包”按钮。
+- **数据一致性**：IndexedDB 写入使用事务，保证 matches/players/comments 外键一致；导入 JSON 前做 schema 校验。
+
+# 上线与运营
+- 首次启动引导用户配置 Dota 2 启动参数 `-gamestateintegration`；检测 Steam 语言以提供中文/英文文案。
+- 当检测到 Overwolf 客户端版本 <0.235 时提示升级。
+- 数据导入/导出需提示风险，导入冲突时以导入文件为准并提供覆盖确认。
+- 计划未来引入广告/词云功能时需重新评估窗口布局与性能。
+
+# 风险与未决问题
+- Overwolf 客户端更新可能改变 GEP 字段结构，需对 GlobalMatchData 加入 schema 版本管理。
+- Dota 2 自定义模式可能导致 `pseudo_match_id` 缺失，需确认 fallback（如时间戳 + 队伍信息）。
+- IndexedDB 50MB 限制可能不满足长期存储需求，是否需要远程同步方案待评估。
+- manifest 中增加的权限是否影响商店审核，需要提前与 Overwolf 支持确认。
+- 尚未规划移动端或 Web companion，是否需要在本期 PRD 中明确范围界定。
+
+# 参考资料
+- Overwolf Native SDK 简介：https://dev.overwolf.com/ow-native/reference/ow-sdk-introduction
+- Overwolf API 概览：https://dev.overwolf.com/ow-native/reference/ow-api-overview
+- 游戏事件 API：https://dev.overwolf.com/ow-native/reference/games/events
+- Dota 2 GEP 支持：https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2
+- GEP 介绍：https://dev.overwolf.com/ow-native/live-game-data-gep/live-game-data-gep-intro
+- 官方前端示例：https://github.com/overwolf/front-app
+- Dota 2 事件示例：https://github.com/overwolf/events-sample-apps/tree/master/dota-events-sample-app-master
 # 其他
 ## 国际化能力
 当设置页切换语言时，修改background中的设置值，然后通知desktop和ingame修改语言相关选项

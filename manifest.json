@@ -1,49 +1,66 @@
 {
-  "manifest_version": 1,
-  "type": "WebApp",
+  "manifest_version": 1.1,
+  "type": "App",
   "meta": {
     "name": "Dota 2 Performance Tier List",
     "author": "Your Name",
     "version": "0.1.0",
-    "minimum-overwolf-version": "0.195.0",
+    "minimum-overwolf-version": "0.235.0",
     "description": "Dota 2 Player Performance Analysis and Tier List",
     "dock_button_title": "Dota 2 Performance",
     "icon": "assets/128.jpg",
     "icon_gray": "assets/128.jpg",
     "launcher_icon": "assets/128.jpg",
     "splash_image": "assets/728.jpg",
-    "window_icon": "assets/32.jpg"
+    "window_icon": "assets/32.jpg",
+    "support_email": "support@example.com",
+    "legal": {
+      "terms_url": "https://example.com/terms",
+      "privacy_policy_url": "https://example.com/privacy"
+    }
   },
   "permissions": [
+    "Hotkeys",
+    "Window",
+    "FileSystem",
     "GameInfo",
-    "Hotkeys"
+    "ExtensionsIO"
   ],
   "data": {
     "start_window": "background",
+    "externally_connectable": {
+      "matches": []
+    },
     "windows": {
       "background": {
         "file": "background.html",
         "is_background_page": true,
-        "transparent": true,
-        "clickthrough": true,
-        "mute": true,
+        "transparent": false,
+        "resizable": false,
+        "allow_scripts_to_close_window": true,
+        "show_in_taskbar": false,
+        "mute": false,
+        "disable_shadow": true,
         "size": {
-          "width": 1,
-          "height": 1
+          "width": 400,
+          "height": 400
         }
       },
       "desktop": {
         "file": "desktop.html",
-        "transparent": false,
+        "transparent": true,
+        "clickthrough": false,
         "resizable": true,
-        "show_in_taskbar": true,
+        "show_in_taskbar": false,
+        "mute": false,
+        "disable_shadow": true,
         "size": {
-          "width": 200,
-          "height": 200
+          "width": 1280,
+          "height": 720
         },
         "min_size": {
-          "width": 200,
-          "height": 200
+          "width": 960,
+          "height": 540
         },
         "start_position": {
           "top": 100,
@@ -55,11 +72,14 @@
         "transparent": true,
         "resizable": true,
         "show_in_taskbar": false,
-        "desktop_only": false,
-        "native_window": false,
+        "grab_focus": true,
+        "clickthrough": false,
+        "mute": false,
+        "disable_shadow": true,
+        "in_game_only": true,
         "size": {
-          "width": 200,
-          "height": 200
+          "width": 960,
+          "height": 540
         },
         "start_position": {
           "top": 100,
@@ -86,6 +106,11 @@
         "title": "Toggle All Windows",
         "action-type": "custom",
         "default": "Alt+Shift+D"
+      },
+      "toggle_ingame": {
+        "title": "Toggle Ingame Overlay",
+        "action-type": "custom",
+        "default": "Alt+Shift+F"
       }
     }
   }

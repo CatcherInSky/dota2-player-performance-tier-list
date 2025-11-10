@@ -10,14 +10,14 @@ export default defineConfig({
       targets: [
         {
           src: 'manifest.json',
-          dest: '.'
+          dest: '.',
         },
         {
           src: 'assets/*',
-          dest: 'assets'
-        }
-      ]
-    })
+          dest: 'assets',
+        },
+      ],
+    }),
   ],
   resolve: {
     alias: {
