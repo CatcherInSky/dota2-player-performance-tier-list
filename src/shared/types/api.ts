@@ -1,4 +1,11 @@
-import type { CommentRecord, MatchRecord, PlayerRecord, SettingsRecord } from './database'
+import type { GlobalMatchData } from './dota2'
+import type {
+  CommentRecord,
+  ExportedDatabase,
+  MatchRecord,
+  PlayerRecord,
+  SettingsRecord,
+} from './database'
 
 export interface PaginationRequest {
   page?: number
@@ -53,3 +60,57 @@ export interface DatabaseSnapshot {
   settings: SettingsRecord
 }
 
+export type SaveCommentPayload = {
+  matchId: string
+  playerId: string
+  score: number
+  comment: string
+}
+
+export type BackgroundApiEvents = {
+  'match:start': { match: MatchRecord | null; state: GlobalMatchData }
+  'match:update': { match: MatchRecord | null; state: GlobalMatchData }
+  'match:end': { match: MatchRecord | null; state: GlobalMatchData }
+  'settings:updated': SettingsRecord
+}
+
+export type BackgroundApi = {
+  windows: {
+    showDesktop(): Promise<void>
+    hideDesktop(): Promise<void>
+    toggleDesktop(): Promise<void>
+    showIngame(data?: unknown): Promise<void>
+    hideIngame(): Promise<void>
+    minimizeIngame(): Promise<void>
+    dragIngame(): Promise<void>
+  }
+  data: {
+    getMatches(filters?: MatchFilters): Promise<PaginatedResult<MatchRecord>>
+    getPlayers(filters?: PlayerFilters): Promise<PaginatedResult<PlayerWithStats>>
+    getComments(filters?: CommentFilters): Promise<PaginatedResult<CommentWithPlayer>>
+    getPlayerHistory(playerId: string): Promise<{ player: PlayerWithStats | null; comments: CommentRecord[] }>
+    saveComment(payload: SaveCommentPayload): Promise<CommentRecord>
+  }
+  match: {
+    getCurrent(): Promise<{ state: GlobalMatchData; match: MatchRecord | null }>
+  }
+  settings: {
+    get(): Promise<SettingsRecord>
+    update(payload: Partial<SettingsRecord>): Promise<SettingsRecord>
+    export(): Promise<ExportedDatabase>
+    import(payload: ExportedDatabase): Promise<void>
+    clear(): Promise<void>
+  }
+  events: {
+    on<EventKey extends keyof BackgroundApiEvents>(
+      event: EventKey,
+      listener: (payload: BackgroundApiEvents[EventKey]) => void,
+    ): () => void
+  }
+}
+
+declare global {
+  interface Window {
+    backgroundApi?: BackgroundApi
+  }
+}

@@ -1,4 +1,4 @@
-import { db } from '../shared/db'
+import { db } from './db'
 import type { SettingsRecord } from '../shared/types/database'
 import { Logger } from '../shared/utils/logger'
 

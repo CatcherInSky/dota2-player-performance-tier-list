@@ -1,46 +1,37 @@
-import { db } from '../shared/db'
+import { db } from './db'
 import type { CommentFilters, MatchFilters, PlayerFilters } from '../shared/types/api'
 import type { ExportedDatabase, MatchRecord, SettingsRecord } from '../shared/types/database'
-import type { BackgroundApi } from '../shared/api/background'
+import type { BackgroundApi, BackgroundApiEvents } from '../shared/types/api'
 import { backgroundEventBus } from './event-bus'
 import { DataService } from './data-service'
 import { MatchTracker } from './match-tracker'
 import { SettingsService } from './settings-service'
 import { WindowManager } from './window-manager'
+import { HotkeyManager } from './hotkey.ts'
 import { Logger } from '../shared/utils/logger'
-import { getOverwolf, isOverwolfAvailable } from '../shared/utils/overwolf'
+import type { BackgroundEvents } from './event-bus'
 
-const REQUESTED_FEATURES = [
-  'match_info',
-  'match_state',
-  'match_state_changed',
-  'game_state',
-  'game_state_changed',
-  'roster',
-  'me',
-  'match_outcome',
-  'match_ended',
-  'game_over',
-]
+type SaveCommentPayload = {
+  matchId: string
+  playerId: string
+  score: number
+  comment: string
+}
 
 export class BackgroundApp {
   private logger = new Logger({ namespace: 'BackgroundApp' })
-  private overwolf = getOverwolf()
   private windowManager = new WindowManager()
   private dataService = new DataService()
   private settingsService = new SettingsService()
   private matchTracker = new MatchTracker()
   private currentMatch: MatchRecord | null = null
-  private initialized = false
+  private initialized = false  
+  private listenersRegistered = false
   private settings: SettingsRecord | null = null
-  private infoUpdateHandler = (event: overwolf.games.events.InfoUpdates2Event) => {
-    this.logger.debug('onInfoUpdates2', event)
-    this.handleInfoUpdate(event as any)
-  }
-  private newEventsHandler = (event: overwolf.games.events.NewGameEvents) => {
-    this.logger.debug('onNewEvents', event)
-    this.handleNewEvents(event as any)
-  }
+  private hotkeyManager = new HotkeyManager(
+    this.windowManager,
+    (mode: 'history' | 'editor') => this.createIngamePayload(mode),
+  )
 
   async init() {
     if (this.initialized) return
@@ -49,20 +40,18 @@ export class BackgroundApp {
     this.settings = await this.settingsService.getSettings()
     backgroundEventBus.emit('settings:updated', this.settings)
 
-    if (isOverwolfAvailable()) {
-      this.registerGameListeners()
-      this.monitorGameLaunch()
-      this.registerHotkeys()
-    } else {
-      this.logger.warn('Overwolf API not available; running in development mode.')
-    }
-
-    window.backgroundApi = this.createApi()
+    this.monitorGameLaunch()
+    // this.registerGameListeners()
+    this.hotkeyManager.register()
+    ;(window as Window & { backgroundApi?: BackgroundApi }).backgroundApi = this.createApi()
     this.logger.info('Background application initialized')
+
+    await this.windowManager.show('desktop')
+
   }
 
   private createApi(): BackgroundApi {
-    return {
+    const api: BackgroundApi = {
       windows: {
         showDesktop: () => this.windowManager.show('desktop'),
         hideDesktop: () => this.windowManager.hide('desktop'),
@@ -77,7 +66,7 @@ export class BackgroundApp {
         getPlayers: (filters?: PlayerFilters) => this.dataService.getPlayers(filters),
         getComments: (filters?: CommentFilters) => this.dataService.getComments(filters),
         getPlayerHistory: (playerId: string) => this.dataService.getPlayerHistory(playerId),
-        saveComment: (payload) => this.dataService.saveComment(payload),
+        saveComment: (payload: SaveCommentPayload) => this.dataService.saveComment(payload),
       },
       match: {
         getCurrent: async () => ({
@@ -109,9 +98,13 @@ export class BackgroundApp {
         },
       },
       events: {
-        on: (event, listener) => backgroundEventBus.on(event, listener as any),
+        on: <EventKey extends keyof BackgroundApiEvents & keyof BackgroundEvents>(
+          event: EventKey,
+          listener: (payload: BackgroundApiEvents[EventKey]) => void,
+        ) => backgroundEventBus.on(event, listener as (payload: BackgroundEvents[EventKey]) => void),
       },
     }
+    return api
   }
 
   private createIngamePayload(mode: 'history' | 'editor') {
@@ -122,16 +115,23 @@ export class BackgroundApp {
     }
   }
 
-  private listenersRegistered = false
-
   private registerGameListeners() {
     if (!this.listenersRegistered) {
-      this.overwolf?.games?.events?.onInfoUpdates2?.addListener(this.infoUpdateHandler)
-      this.overwolf?.games?.events?.onNewEvents?.addListener(this.newEventsHandler)
-      this.listenersRegistered = true
-    }
+      this.logger.info('Dota 2 launched; enabling listeners')
+    overwolf?.games?.events?.onInfoUpdates2?.addListener(this.handleInfoUpdate)
+    overwolf?.games?.events?.onNewEvents?.addListener(this.handleNewEvents)
 
-    this.overwolf?.games?.events?.setRequiredFeatures(REQUESTED_FEATURES, (result) => {
+    overwolf?.games?.events?.setRequiredFeatures([
+      'match_info',
+      'match_state_changed',
+      'game_state_changed',
+      'roster',
+      'me',
+      'match_ended',
+      'gep_internal',
+      'game',
+      'match'
+    ], (result) => {
       const info = (result ?? {}) as {
         status?: string
         success?: boolean
@@ -148,9 +148,12 @@ export class BackgroundApp {
         this.logger.info('Game events features enabled')
       }
     })
+    this.listenersRegistered = true
+  }
   }
 
-  private handleInfoUpdate(event: { feature: string; info: unknown }) {
+  private handleInfoUpdate = (event: { feature: string; info: unknown }) => {
+    this.logger.debug('onInfoUpdates2', event)
     this.matchTracker.handleInfoUpdate(event as any)
     const state = this.matchTracker.getState()
     void this.dataService.upsertMatchRecord(state, { allowCreate: false }).then((match: MatchRecord | null) => {
@@ -159,7 +162,8 @@ export class BackgroundApp {
     })
   }
 
-  private handleNewEvents(event: { events: Array<{ name: string; data: string }> }) {
+  private handleNewEvents = (event: { events: Array<{ name: string; data: string }> }) => {
+    this.logger.debug('onNewEvents', event)
     const signal = this.matchTracker.handleNewEvents(event as any)
     const state = this.matchTracker.getState()
 
@@ -195,61 +199,28 @@ export class BackgroundApp {
   }
 
   private monitorGameLaunch() {
-    this.overwolf?.games?.onGameInfoUpdated?.addListener((change) => {
+    overwolf?.games?.onGameInfoUpdated?.addListener((change) => {
       const launched = this.isDota2Launched(change)
-      const terminated = this.isDota2Terminated(change)
       if (launched) {
-        this.logger.info('Dota 2 launched; enabling listeners')
         this.registerGameListeners()
-      }
-      if (terminated) {
-        this.logger.info('Dota 2 terminated; clearing listeners')
+      } else {
         this.cleanupGameListeners()
-      }
-    })
-  }
 
-  private registerHotkeys() {
-    this.overwolf?.settings?.hotkeys?.onPressed?.addListener((event) => {
-      if (event.name === 'toggle_windows') {
-        const desktopVisible = this.windowManager.isVisible('desktop')
-        const ingameVisible = this.windowManager.isVisible('ingame')
-        if (desktopVisible || ingameVisible) {
-          void this.windowManager.hideAll()
-        } else {
-          void this.windowManager.show('desktop')
-          void this.windowManager.showIngame(this.createIngamePayload('history'))
-        }
-      }
-
-      if (event.name === 'toggle_ingame') {
-        if (this.windowManager.isVisible('ingame')) {
-          void this.windowManager.hide('ingame')
-        } else {
-          void this.windowManager.showIngame(this.createIngamePayload('history'))
-        }
       }
     })
   }
 
   private cleanupGameListeners() {
-    this.overwolf?.games?.events?.onInfoUpdates2?.removeListener?.(this.infoUpdateHandler)
-    this.overwolf?.games?.events?.onNewEvents?.removeListener?.(this.newEventsHandler)
+    this.logger.info('Dota 2 terminated; clearing listeners')
+    overwolf?.games?.events?.onInfoUpdates2?.removeListener?.(this.handleInfoUpdate)
+    overwolf?.games?.events?.onNewEvents?.removeListener?.(this.handleNewEvents)
     this.matchTracker.reset()
     this.listenersRegistered = false
   }
 
   private isDota2Launched(gameInfo: overwolf.games.GameInfoUpdatedEvent) {
-    if (!gameInfo.gameInfo || !gameInfo.runningChanged) return false
+    if (!gameInfo.gameInfo) return false
     if (!gameInfo.gameInfo.isRunning) return false
-    const id = gameInfo.gameInfo.id
-    if (typeof id !== 'number') return false
-    return Math.floor(id / 10) === 7314
-  }
-
-  private isDota2Terminated(gameInfo: overwolf.games.GameInfoUpdatedEvent) {
-    if (!gameInfo.gameInfo || !gameInfo.runningChanged) return false
-    if (gameInfo.gameInfo.isRunning) return false
     const id = gameInfo.gameInfo.id
     if (typeof id !== 'number') return false
     return Math.floor(id / 10) === 7314

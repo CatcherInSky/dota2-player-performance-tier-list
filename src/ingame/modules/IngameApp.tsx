@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BackgroundApi } from '../../shared/api/background'
+import type { BackgroundApi } from '../../shared/types/api'
 import { useBackgroundApi } from '../../shared/hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../../shared/hooks/useBackgroundEvents'
 import { useI18n } from '../../shared/i18n'
@@ -30,7 +30,7 @@ export function IngameApp() {
   useEffect(() => {
     if (!api) return
     let cancelled = false
-    api.match.getCurrent().then(async ({ state, match }) => {
+    api.match.getCurrent().then(async ({ state, match }: { state: GlobalMatchData; match: MatchRecord | null }) => {
       if (cancelled) return
       setMatch(match)
       const data = await hydratePlayers(api, state, match, mode)

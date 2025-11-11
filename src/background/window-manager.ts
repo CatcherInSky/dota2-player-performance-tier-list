@@ -1,5 +1,4 @@
 import { Logger } from '../shared/utils/logger'
-import { getOverwolf, isOverwolfAvailable } from '../shared/utils/overwolf'
 
 type WindowName = 'background' | 'desktop' | 'ingame'
 
@@ -23,7 +22,6 @@ type WindowInfo = overwolf.windows.WindowInfo
 
 export class WindowManager {
   private logger = new Logger({ namespace: 'WindowManager' })
-  private overwolf = getOverwolf()
   private windows = new Map<WindowName, WindowState>()
 
   constructor() {
@@ -33,11 +31,7 @@ export class WindowManager {
   }
 
   async show(name: WindowName, bringToFront = true) {
-    if (!isOverwolfAvailable()) {
-      this.logger.debug(`[DEV] show window ${name}`)
-      this.updateVisibility(name, true)
-      return
-    }
+
 
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
@@ -51,29 +45,24 @@ export class WindowManager {
   }
 
   async hide(name: WindowName) {
-    if (!isOverwolfAvailable()) {
-      this.logger.debug(`[DEV] hide window ${name}`)
-      this.updateVisibility(name, false)
-      return
-    }
+
 
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
 
     await new Promise<void>((resolve) => {
-      this.overwolf?.windows.hide(windowInfo.id, () => resolve())
+      overwolf?.windows.hide(windowInfo.id, () => resolve())
     })
 
     this.updateVisibility(name, false)
   }
 
   async minimize(name: WindowName) {
-    if (!isOverwolfAvailable()) return
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
 
     await new Promise<void>((resolve) => {
-      this.overwolf?.windows.minimize(windowInfo.id, () => resolve())
+      overwolf?.windows.minimize(windowInfo.id, () => resolve())
     })
     this.updateVisibility(name, false)
   }
@@ -115,8 +104,7 @@ export class WindowManager {
   }
 
   async dragMove(name: WindowName) {
-    if (!isOverwolfAvailable()) return
-    this.overwolf?.windows.dragMove(name)
+    overwolf?.windows.dragMove(name)
   }
 
   private updateVisibility(name: WindowName, isVisible: boolean) {
@@ -128,17 +116,16 @@ export class WindowManager {
   }
 
   private async applyDefaultSize(name: WindowName, windowId: string) {
-    if (!isOverwolfAvailable()) return
     const size = DEFAULT_WINDOW_SIZES[name]
     if (!size) return
     await new Promise<void>((resolve) => {
-      this.overwolf?.windows.changeSize(windowId, size.width, size.height, () => resolve())
+      overwolf?.windows.changeSize(windowId, size.width, size.height, () => resolve())
     })
   }
 
   private obtainWindow(name: WindowName): Promise<WindowInfo | null> {
     return new Promise((resolve) => {
-      this.overwolf?.windows.obtainDeclaredWindow(name, (result) => {
+      overwolf?.windows.obtainDeclaredWindow(name, (result) => {
         const info = (result ?? {}) as ObtainWindowResult
         const successFlag = typeof info.success === 'boolean' ? info.success : undefined
         const statusFlag = typeof info.status === 'string' ? info.status !== 'error' : undefined
@@ -156,13 +143,13 @@ export class WindowManager {
 
   private restoreWindow(windowId: string): Promise<void> {
     return new Promise((resolve) => {
-      this.overwolf?.windows.restore(windowId, () => resolve())
+      overwolf?.windows.restore(windowId, () => resolve())
     })
   }
 
   private bringToFront(windowId: string): Promise<void> {
     return new Promise((resolve) => {
-      this.overwolf?.windows.bringToFront(windowId, () => resolve())
+      overwolf?.windows.bringToFront(windowId, () => resolve())
     })
   }
 }

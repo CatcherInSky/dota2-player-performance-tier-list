@@ -9,7 +9,7 @@ import type {
   PlayerWithStats,
 } from '../../shared/types/api'
 import type { CommentRecord, MatchRecord } from '../../shared/types/database'
-import type { BackgroundApi } from '../../shared/api/background'
+import type { BackgroundApi } from '../../shared/types/api'
 import { useBackgroundApi } from '../../shared/hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../../shared/hooks/useBackgroundEvents'
 import { useI18n } from '../../shared/i18n'

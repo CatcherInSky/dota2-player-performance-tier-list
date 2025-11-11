@@ -1,4 +1,4 @@
-import { db } from '../shared/db'
+import { db } from './db'
 import type {
   CommentFilters,
   CommentWithPlayer,

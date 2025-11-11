@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
-import type { BackgroundApi } from '../api/background'
-import { getOverwolf, isOverwolfAvailable } from '../utils/overwolf'
+import type { BackgroundApi } from '../types/api'
 
 async function resolveBackgroundApi(): Promise<BackgroundApi | undefined> {
   if (typeof window !== 'undefined' && window.backgroundApi) {
     return window.backgroundApi
   }
 
-  if (isOverwolfAvailable()) {
-    const overwolf = getOverwolf()
     const mainWindow = overwolf?.windows?.getMainWindow()
     if (mainWindow) {
       return (mainWindow as unknown as { backgroundApi?: BackgroundApi }).backgroundApi
     }
-  }
+  
 
   return undefined
 }

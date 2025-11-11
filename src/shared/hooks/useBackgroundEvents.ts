@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { BackgroundApi, BackgroundApiEvents } from '../api/background'
+import type { BackgroundApi, BackgroundApiEvents } from '../types/api'
 
 type EventKey = keyof BackgroundApiEvents
 

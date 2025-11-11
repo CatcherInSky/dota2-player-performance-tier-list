@@ -1,62 +1,48 @@
 {
-  "manifest_version": 1.1,
-  "type": "App",
-  "meta": {
-    "name": "Dota 2 Performance Tier List",
-    "author": "Your Name",
-    "version": "0.1.0",
-    "minimum-overwolf-version": "0.235.0",
-    "description": "Dota 2 Player Performance Analysis and Tier List",
-    "dock_button_title": "Dota 2 Performance",
-    "icon": "assets/128.jpg",
-    "icon_gray": "assets/128.jpg",
-    "launcher_icon": "assets/128.jpg",
-    "splash_image": "assets/728.jpg",
-    "window_icon": "assets/32.jpg",
-    "support_email": "support@example.com",
-    "legal": {
-      "terms_url": "https://example.com/terms",
-      "privacy_policy_url": "https://example.com/privacy"
-    }
-  },
+  "manifest_version": 1,
+  "type": "WebApp",
   "permissions": [
+    "Clipboard",
     "Hotkeys",
     "Window",
     "FileSystem",
     "GameInfo",
-    "ExtensionsIO"
+    "Web"
   ],
+  "meta": {
+    "name": "Player Tier List",
+    "author": "CatcherInSky",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.235.0",
+    "description": "Dota 2 Player Performance Analysis and Player Tier List",
+    "dock_button_title": "Dota 2 Performance",
+    "icon": "assets/1000.jpg",
+    "icon_gray": "assets/1000.jpg",
+    "launcher_icon": "assets/1000.jpg",
+    "tray_icon": "assets/1000.jpg",
+    "splash_image": "assets/1000.jpg",
+    "window_icon": "assets/1000.jpg"
+  },
   "data": {
-    "start_window": "background",
-    "externally_connectable": {
-      "matches": []
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [7314]
     },
+    "start_window": "background",
     "windows": {
       "background": {
         "file": "background.html",
-        "is_background_page": true,
-        "transparent": false,
-        "resizable": false,
-        "allow_scripts_to_close_window": true,
         "show_in_taskbar": false,
-        "mute": false,
-        "disable_shadow": true,
-        "size": {
-          "width": 400,
-          "height": 400
-        }
+        "is_background_page": true,
+        "open_dev_tools": false
       },
       "desktop": {
         "file": "desktop.html",
-        "transparent": true,
-        "clickthrough": false,
+        "show_in_taskbar": true,
+        "transparent": false,
         "resizable": true,
-        "show_in_taskbar": false,
-        "mute": false,
-        "disable_shadow": true,
-        "show_minimize_button": true,
-        "show_maximize_button": true,
-        "show_close_button": true,
+        "show_minimize": true,
+        "clickthrough": false,
         "size": {
           "width": 1280,
           "height": 720
@@ -72,21 +58,18 @@
         "start_position": {
           "top": 100,
           "left": 100
-        }
+        },
+        "mute": false,
+        "open_dev_tools": false
       },
       "ingame": {
         "file": "ingame.html",
-        "transparent": true,
+        "show_in_taskbar": true,
+        "transparent": false,
         "resizable": true,
-        "show_in_taskbar": false,
-        "grab_focus": true,
+        "show_minimize": true,
         "clickthrough": false,
-        "mute": false,
-        "disable_shadow": true,
         "in_game_only": true,
-        "show_minimize_button": true,
-        "show_maximize_button": false,
-        "show_close_button": false,
         "size": {
           "width": 960,
           "height": 540
@@ -98,23 +81,13 @@
         "start_position": {
           "top": 100,
           "left": 100
-        }
-      }
-    },
-    "game_targeting": {
-      "type": "dedicated",
-      "game_ids": [7314]
-    },
-    "game_events": [7314],
-    "launch_events": [
-      {
-        "event": "GameLaunch",
-        "event_data": {
-          "game_ids": [7314]
         },
-        "start_minimized": false
+        "mute": false
       }
-    ],
+    },
+    "force_browser": "overwolf",
+    "game_events": [7314],
+    
     "hotkeys": {
       "toggle_windows": {
         "title": "Toggle All Windows",
@@ -126,6 +99,20 @@
         "action-type": "custom",
         "default": "Alt+Shift+F"
       }
-    }
+    },
+    "launch_events": [
+      {
+        "event": "GameLaunch",
+        "event_data": {
+          "game_ids": [7314]
+        },
+        "tracked": true,
+        "start_minimized": false
+      }
+    ],
+    "developer": {
+      "enable_auto_refresh": true
+    },
+    "open_dev_tools": false
   }
 }

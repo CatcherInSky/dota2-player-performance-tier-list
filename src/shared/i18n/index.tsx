@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import type { BackgroundApi } from '../api/background'
+import type { BackgroundApi } from '../types/api'
 import { useBackgroundApi } from '../hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../hooks/useBackgroundEvents'
 import type { SettingsRecord } from '../types/database'

@@ -6,7 +6,7 @@ import type {
   PlayerRecord,
   RatingLabelKey,
   SettingsRecord,
-} from '../types/database'
+} from '../../shared/types/database'
 
 const SETTINGS_ID = 'app-settings'
 
@@ -26,17 +26,19 @@ export class DotaDexie extends Dexie {
       settings: 'id',
     })
 
-    this.matches.mapToClass(class implements MatchRecord {
-      uuid!: string
-      createdAt!: number
-      updatedAt!: number
-      matchId!: string
-      playerId?: string
-      gameMode?: MatchRecord['gameMode']
-      win?: boolean | null
-      teamScore?: MatchRecord['teamScore']
-      players?: MatchRecord['players']
-    })
+    this.matches.mapToClass(
+      class implements MatchRecord {
+        uuid!: string
+        createdAt!: number
+        updatedAt!: number
+        matchId!: string
+        playerId?: string
+        gameMode?: MatchRecord['gameMode']
+        win?: boolean | null
+        teamScore?: MatchRecord['teamScore']
+        players?: MatchRecord['players']
+      },
+    )
   }
 
   async export(): Promise<ExportedDatabase> {
@@ -58,26 +60,45 @@ export class DotaDexie extends Dexie {
   async import(payload: ExportedDatabase) {
     const { matches, players, comments, settings } = payload
 
-    await this.transaction('readwrite', this.matches, this.players, this.comments, this.settings, async () => {
-      if (matches?.length) {
-        await this.matches.bulkPut(matches)
-      }
-      if (players?.length) {
-        await this.players.bulkPut(players)
-      }
-      if (comments?.length) {
-        await this.comments.bulkPut(comments)
-      }
-      if (settings) {
-        await this.settings.put(settings)
-      }
-    })
+    await this.transaction(
+      'readwrite',
+      this.matches,
+      this.players,
+      this.comments,
+      this.settings,
+      async () => {
+        if (matches?.length) {
+          await this.matches.bulkPut(matches)
+        }
+        if (players?.length) {
+          await this.players.bulkPut(players)
+        }
+        if (comments?.length) {
+          await this.comments.bulkPut(comments)
+        }
+        if (settings) {
+          await this.settings.put(settings)
+        }
+      },
+    )
   }
 
   async clearAll() {
-    await this.transaction('readwrite', this.matches, this.players, this.comments, this.settings, async () => {
-      await Promise.all([this.matches.clear(), this.players.clear(), this.comments.clear(), this.settings.clear()])
-    })
+    await this.transaction(
+      'readwrite',
+      this.matches,
+      this.players,
+      this.comments,
+      this.settings,
+      async () => {
+        await Promise.all([
+          this.matches.clear(),
+          this.players.clear(),
+          this.comments.clear(),
+          this.settings.clear(),
+        ])
+      },
+    )
   }
 
   async getSettings(): Promise<SettingsRecord> {
@@ -127,4 +148,5 @@ export class DotaDexie extends Dexie {
 }
 
 export const db = new DotaDexie()
+
 
