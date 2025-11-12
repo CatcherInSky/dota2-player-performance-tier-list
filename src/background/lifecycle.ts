@@ -59,13 +59,6 @@ export class MatchTracker {
     return this.matchId ?? this.state.match_info.pseudo_match_id
   }
 
-  upsertMatchId(fallback: string) {
-    if (!this.state.match_info.pseudo_match_id) {
-      this.state.match_info.pseudo_match_id = fallback
-    }
-    this.matchId = this.state.match_info.pseudo_match_id
-  }
-
   handleInfoUpdate(update: DotaInfoUpdate) {
     switch (update.feature) {
       case 'match_info': {
@@ -143,14 +136,15 @@ export class MatchTracker {
 
   handleNewEvents(payload: Dota2EventPayload): MatchSignal | undefined {
     let signal: MatchSignal | undefined
-
+    if(this.shouldEnd(payload)) {
+      this.logger.info('match:', this.state)
+      signal = 'end'
+      return signal
+    }
     payload.events.forEach((event) => {
       const data = safeJsonParse<Record<string, unknown>>(event.data)
-      if (!data && event.name !== 'game_over') {
-        this.logger.warn('no data')
-        return
-      }
 
+    
       if (event.name === 'match_state_changed') {
         const matchStatePayload = data as {
           match_state?: Dota2MatchState
@@ -159,7 +153,8 @@ export class MatchTracker {
         const matchState =
           matchStatePayload?.match_state ?? matchStatePayload?.game_state
         if (matchState) {
-          if (this.handleMatchStateUpdate(matchState)) {
+          this.state.game.match_state = matchState
+          if (this.shouldStart(matchState)) {
             signal = 'start'
           }
         }
@@ -179,7 +174,9 @@ export class MatchTracker {
         const matchState =
           gamePayload?.match_state ?? gamePayload?.game?.match_state
         if (matchState) {
-          if (this.handleMatchStateUpdate(matchState as Dota2MatchState)) {
+          
+          this.state.game.match_state = matchState
+          if (this.shouldStart(matchState as Dota2MatchState)) {
             signal = 'start'
           }
         }
@@ -190,31 +187,27 @@ export class MatchTracker {
           winner?: Dota2TeamKey
           match_outcome?: Dota2TeamKey
         }
-        const winner = payload?.winner ?? payload?.match_outcome
+        const winner = payload?.winner
         if (winner && Object.values(Dota2Team).includes(winner as Dota2Team)) {
           this.state.game.winner = winner
         }
         
-        this.logger.info('END')
-      }
-
-      if (event.name === 'game_over') {
-        
-        this.logger.info('END')
-        signal = 'end'
       }
     })
 
+    this.logger.info('match:', this.state)
     return signal
   }
 
   shouldEnd(events: Dota2EventPayload): boolean {
-    return events.events.some((event) => MATCH_END_EVENTS.has(event.name))
+    const res = events.events.some((event) => MATCH_END_EVENTS.has(event.name))
+    if (res) this.logger.info('END')
+    return res
   }
 
-  private handleMatchStateUpdate(matchState: Dota2MatchState): boolean {
-    this.state.game.match_state = matchState
-    if (!this.active && MATCH_START_STATES.includes(matchState)) {
+  shouldStart(matchState: Dota2MatchState): boolean {
+    const res = !this.active && MATCH_START_STATES.includes(matchState)
+    if (res) {
       this.active = true
       this.logger.info('START')
       return true

@@ -15,7 +15,7 @@ export class EventBus<Events extends Record<string, unknown>> {
     this.listeners.get(event)?.delete(listener as Listener<any>)
   }
 
-  emit<EventKey extends keyof Events>(event: EventKey, payload: Events[EventKey]) {
+  emit<EventKey extends keyof Events>(event: EventKey, payload?: Events[EventKey]) {
     this.listeners.get(event)?.forEach((listener) => {
       try {
         listener(payload)

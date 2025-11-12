@@ -1,14 +1,28 @@
 import Dexie, { type Table } from 'dexie'
-import type {
-  CommentRecord,
-  ExportedDatabase,
-  MatchRecord,
-  PlayerRecord,
-  RatingLabelKey,
-  SettingsRecord,
-} from '../../shared/types/database'
+import type { CommentRecord, ExportedDatabase, MatchRecord, PlayerRecord, SettingsRecord } from '../shared/types/database'
 
-const SETTINGS_ID = 'app-settings'
+export const SETTINGS_ID = 'app-settings'
+
+export const DEFAULT_SETTINGS_TEMPLATE: Pick<SettingsRecord, 'id' | 'language' | 'ratingLabels'> = {
+  id: SETTINGS_ID,
+  language: 'zh-CN',
+  ratingLabels: {
+    1: '拉',
+    2: '菜鸟',
+    3: 'NPC',
+    4: '顶级',
+    5: '夯',
+  },
+}
+
+export function createDefaultSettingsRecord(): SettingsRecord {
+  const now = Date.now()
+  return {
+    ...DEFAULT_SETTINGS_TEMPLATE,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
 
 export class DotaDexie extends Dexie {
   matches!: Table<MatchRecord, string>
@@ -20,7 +34,7 @@ export class DotaDexie extends Dexie {
     super('dota2-player-performance')
 
     this.version(1).stores({
-      matches: 'uuid, matchId, playerId, updatedAt, gameMode',
+      matches: 'uuid, matchId, playerId, updatedAt, gameMode, winner',
       players: 'uuid, playerId, updatedAt',
       comments: 'uuid, playerId, matchId, updatedAt, [matchId+playerId]',
       settings: 'id',
@@ -34,7 +48,7 @@ export class DotaDexie extends Dexie {
         matchId!: string
         playerId?: string
         gameMode?: MatchRecord['gameMode']
-        win?: boolean | null
+        winner?: MatchRecord['winner']
         teamScore?: MatchRecord['teamScore']
         players?: MatchRecord['players']
       },
@@ -42,23 +56,22 @@ export class DotaDexie extends Dexie {
   }
 
   async export(): Promise<ExportedDatabase> {
-    const [matches, players, comments, settings] = await Promise.all([
+    const [matches, players, comments] = await Promise.all([
       this.matches.toArray(),
       this.players.toArray(),
       this.comments.toArray(),
-      this.settings.get(SETTINGS_ID),
+      // this.settings.get(SETTINGS_ID),
     ])
 
     return {
       matches,
       players,
       comments,
-      settings: settings ?? null,
     }
   }
 
   async import(payload: ExportedDatabase) {
-    const { matches, players, comments, settings } = payload
+    const { matches, players, comments } = payload
 
     await this.transaction(
       'readwrite',
@@ -75,9 +88,6 @@ export class DotaDexie extends Dexie {
         }
         if (comments?.length) {
           await this.comments.bulkPut(comments)
-        }
-        if (settings) {
-          await this.settings.put(settings)
         }
       },
     )
@@ -100,53 +110,7 @@ export class DotaDexie extends Dexie {
       },
     )
   }
-
-  async getSettings(): Promise<SettingsRecord> {
-    const now = Date.now()
-    const existing = await this.settings.get(SETTINGS_ID)
-    if (existing) {
-      return existing
-    }
-
-    const defaultSettings: SettingsRecord = {
-      id: SETTINGS_ID,
-      createdAt: now,
-      updatedAt: now,
-      language: 'zh-CN',
-      ratingLabels: {
-        1: '拉',
-        2: '菜鸟',
-        3: 'NPC',
-        4: '顶级',
-        5: '夯',
-      },
-    }
-
-    await this.settings.put(defaultSettings)
-    return defaultSettings
-  }
-
-  async updateSettings(partial: Partial<Omit<SettingsRecord, 'id'>>) {
-    const current = await this.getSettings()
-    const updated: SettingsRecord = {
-      ...current,
-      ...partial,
-      ratingLabels: partial.ratingLabels ?? current.ratingLabels,
-      updatedAt: Date.now(),
-    }
-
-    await this.settings.put(updated)
-  }
-
-  static DEFAULT_RATING_LABELS: Record<RatingLabelKey, string> = {
-    1: '拉',
-    2: '菜鸟',
-    3: 'NPC',
-    4: '顶级',
-    5: '夯',
-  }
 }
 
 export const db = new DotaDexie()
-
 

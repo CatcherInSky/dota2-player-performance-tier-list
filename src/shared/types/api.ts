@@ -1,4 +1,4 @@
-import type { GlobalMatchData } from './dota2'
+import type { Dota2TeamKey, GlobalMatchData } from './dota2'
 import type {
   CommentRecord,
   ExportedDatabase,
@@ -17,7 +17,7 @@ export interface MatchFilters extends PaginationRequest {
   startTime?: number
   endTime?: number
   gameMode?: string
-  win?: 'win' | 'lose' | 'unknown'
+  winner?: Dota2TeamKey | 'unknown'
 }
 
 export interface PlayerFilters extends PaginationRequest {
@@ -68,9 +68,8 @@ export type SaveCommentPayload = {
 }
 
 export type BackgroundApiEvents = {
-  'match:start': { match: MatchRecord | null; state: GlobalMatchData }
-  'match:update': { match: MatchRecord | null; state: GlobalMatchData }
-  'match:end': { match: MatchRecord | null; state: GlobalMatchData }
+  'match:start': void
+  'match:end': void
   'settings:updated': SettingsRecord
 }
 
@@ -79,10 +78,12 @@ export type BackgroundApi = {
     showDesktop(): Promise<void>
     hideDesktop(): Promise<void>
     toggleDesktop(): Promise<void>
-    showIngame(data?: unknown): Promise<void>
-    hideIngame(): Promise<void>
-    minimizeIngame(): Promise<void>
-    dragIngame(): Promise<void>
+    showHistory(): Promise<void>
+    hideHistory(): Promise<void>
+    dragHistory(): Promise<void>
+    showComment(): Promise<void>
+    hideComment(): Promise<void>
+    dragComment(): Promise<void>
   }
   data: {
     getMatches(filters?: MatchFilters): Promise<PaginatedResult<MatchRecord>>

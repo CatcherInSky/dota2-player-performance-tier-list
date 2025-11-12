@@ -1,12 +1,7 @@
-import { WindowManager } from './window-manager'
-
-type ResolveIngamePayload = (mode: 'history' | 'editor') => unknown
+import { WindowManager } from './window'
 
 export class HotkeyManager {
-  constructor(
-    private readonly windowManager: WindowManager,
-    private readonly resolveIngamePayload: ResolveIngamePayload,
-  ) {}
+  constructor(private readonly windowManager: WindowManager) {}
 
   register() {
     overwolf?.settings?.hotkeys?.onPressed?.addListener(this.handleHotkey)
@@ -16,22 +11,10 @@ export class HotkeyManager {
     if (!event?.name) return
 
     if (event.name === 'toggle_windows') {
-      const desktopVisible = this.windowManager.isVisible('desktop')
-      const ingameVisible = this.windowManager.isVisible('ingame')
-      if (desktopVisible || ingameVisible) {
+      if (this.windowManager.hasVisibleForeground()) {
         void this.windowManager.hideAll()
       } else {
         void this.windowManager.show('desktop')
-        void this.windowManager.showIngame(this.resolveIngamePayload('history'))
-      }
-      return
-    }
-
-    if (event.name === 'toggle_ingame') {
-      if (this.windowManager.isVisible('ingame')) {
-        void this.windowManager.hide('ingame')
-      } else {
-        void this.windowManager.showIngame(this.resolveIngamePayload('history'))
       }
     }
   }

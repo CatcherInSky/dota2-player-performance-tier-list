@@ -60,152 +60,6 @@ docs/prdv3.md（本文件，建议放置于 docs 目录统一管理）
 https://api.opendota.com/api/matches
 
 
-## 数据类型
-```
-// Dota 2 GEP data types used by Overwolf
-
-export enum Dota2GameState {
-  PLAYING = "playing",
-  SPECTATING = "spectating",
-  IDLE = "idle",
-}
-
-export enum Dota2MatchState {
-  WAIT_FOR_PLAYERS_TO_LOAD = "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD",
-  HERO_SELECTION = "DOTA_GAMERULES_STATE_HERO_SELECTION",
-  STRATEGY_TIME = "DOTA_GAMERULES_STATE_STRATEGY_TIME",
-  PRE_GAME = "DOTA_GAMERULES_STATE_PRE_GAME",
-  GAME_IN_PROGRESS = "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
-  POST_GAME = "DOTA_GAMERULES_STATE_POST_GAME",
-  TEAM_SHOWCASE = "DOTA_GAMERULES_STATE_TEAM_SHOWCASE",
-}
-
-export enum Dota2Team {
-  RADIANT = "radiant", // 2
-  DIRE = "dire", // 3
-  // 0 not in a team
-}
-
-export enum Dota2GameMode {
-  ALL_PICK = "AllPick",
-  ALL_PICK_RANKED = "AllPickRanked",
-  SINGLE_DRAFT = "SingleDraft",
-  RANDOM_DRAFT = "RandomDraft",
-  ALL_RANDOM = "AllRandom",
-  LEAST_PLAYED = "LeastPlayed",
-  LIMITED_HEROES = "LimitedHeroes",
-  CAPTAINS_MODE = "CaptainsMode",
-  CAPTAINS_DRAFT = "CaptainsDraft",
-}
-
-
-export interface Dota2Event {
-  events: {
-    name: string;
-    data: string; // JSON 字符串化数据
-  }[]
-}
-
-export interface Dota2EventMatchEnded {
-  winner: keyof typeof Dota2Team 
-}
-
-interface Dota2InfoUpdates<T, U> {
-  feature: T;
-  info: U;
-}
-
-export interface MatchInfo {
-  match_info: {
-    pseudo_match_id?: string;
-    game_mode?: string; // JSON 字符串化数据
-    team_score?: string; // JSON 字符串化数据
-  }
-}
-
-export interface GameMode {
-  lobby_type: string; // 需破解
-  game_mode: string; // 和Dota2GameMode类似需破解
-}
-
-export interface TeamScore {
-  [Dota2Team.RADIANT]: number;
-  [Dota2Team.DIRE]: number;
-}
-
-export interface Dota2InfoUpdatesMatchInfo extends Dota2InfoUpdates<"match_info", MatchInfo> {}
-
-interface MatchStateChanged {
-  game: {
-    match_state: keyof typeof Dota2MatchState
-  }
-}
-
-export interface Dota2InfoUpdatesMatchStateChanged extends Dota2InfoUpdates<"match_state_changed", MatchStateChanged> {}
-
-export interface GameStateChanged {
-  game: {
-    game_state: keyof typeof Dota2GameState
-  }
-}
-
-
-export interface Dota2InfoUpdatesGameStateChanged extends Dota2InfoUpdates<"game_state_changed", GameStateChanged> {}
-
-export interface Dota2Me {
-  me: {
-    steam_id?: string;
-    team?: keyof typeof Dota2Team;
-  }
-}
-
-export interface Dota2InfoUpdatesMe extends Dota2InfoUpdates<"me", Dota2Me> {}
-
-export interface Dota2Roaster {
-  roster: {
-    bans?: string; // 不关心
-    players?: string; // JSON 字符串化数据
-    draft?: string; // 不关心
-  }
-}
-
-export interface Dota2Player {
-  steamId?: string;
-  name?: string;
-  hero?: string; // 0 not pick
-  team?: number; // 2 – Radiant 3 – Dire 0 – Not in a team
-  role?: number; // "role" - role type. (1 - Safelane, 2 - Offlane, 4 - Midlane, 8 - Other, 16 - HardSupport, 888)
-  team_slot?: number; // 0-4 per team
-  player_index?: number; // 0-9
-}
-
-export interface Dota2Roster extends Dota2InfoUpdates<"roster",  Dota2Roaster>{}
-
-export interface GlobalMatchData {
-  match_info: { 
-    pseudo_match_id?: string; // onInfoUpdates2 match_info
-    game_mode?: GameMode; // onInfoUpdates2 match_info
-    team_score: TeamScore; // onInfoUpdates2 match_info
-  }
-  me: {
-      steam_id?: string; // onInfoUpdates2 me
-      team?: keyof typeof Dota2Team; // onInfoUpdates2 me
-    }
-    roster: {
-      players: Dota2Player // onInfoUpdates2 roster
-    }
-  game: {
-      winner: keyof typeof Dota2Team // onNewEvents match_ended
-      game_state: keyof typeof Dota2GameState // onNewEvents game_state_changed
-  }
-}
-```
-
-### overwolf类型
-@overwolf/types
-
-### dota2类型
-
 ## 数据表
 
 ### 比赛表 matches
@@ -223,7 +77,7 @@ updated_at 更新记录时间,毫秒级时间戳 number
 match_id 比赛id match_info.pseudo_match_id string
 me 我的steamid match_info.me.steam_id string
 game_mode 游戏模式 match_info.game_mode GameMode
-win 计算字段，通过winner+players中steamId和me一致的玩家的team对比得知玩家是否胜利，如果没有结果显示为空 boolean
+winner 计算字段，通过winner+players中steamId和me一致的玩家的team对比得知玩家是否胜利，如果没有结果显示为空 boolean
 team_score 比分 match_info.TeamScore  TeamScore
 players 队伍 roster.players Dota2Player
 
@@ -547,3 +401,16 @@ id
 15. desktop和ingame数据应该自动刷新
 16. 游戏结束之后清空了评分数据
 17. 控制台图片偏小
+
+
+
+# 数据库整合
+1. Dexie相关底层数据库模块，负责建表、CURD等基本操作
+2. 每个数据库都可以独立一个模块出来matches players comments settings，每个数据库的常用操作如下
+3. 比赛表，创建记录、不断更新比赛记录的字段、单条查询、条件分页查询
+4. 玩家表，创建玩家、更新字段、单条查询、条件分页查询
+5. 评价表，创建和更新、单条查询、条件分页查询
+6. 设置表，初始化创建和更新
+7. data类完全可以按照表的操作来拆分而不是合成一个DataService类
+8. 比赛表 winner字段修改成直接记录GlobalMatchData.game.winner的字符串而不是计算字段布尔值
+9. 设置表的初始化数据可以实现构建一个对象，后续我直接修改对象即可

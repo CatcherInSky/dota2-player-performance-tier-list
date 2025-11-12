@@ -62,14 +62,34 @@
         "mute": false,
         "open_dev_tools": false
       },
-      "ingame": {
-        "file": "ingame.html",
+      "history": {
+        "file": "history.html",
         "show_in_taskbar": true,
         "transparent": false,
         "resizable": true,
         "show_minimize": true,
         "clickthrough": false,
-        "in_game_only": true,
+        "size": {
+          "width": 960,
+          "height": 540
+        },
+        "min_size": {
+          "width": 480,
+          "height": 270
+        },
+        "start_position": {
+          "top": 100,
+          "left": 100
+        },
+        "mute": false
+      },
+      "comment": {
+        "file": "comment.html",
+        "show_in_taskbar": true,
+        "transparent": false,
+        "resizable": true,
+        "show_minimize": true,
+        "clickthrough": false,
         "size": {
           "width": 960,
           "height": 540
@@ -93,11 +113,6 @@
         "title": "Toggle All Windows",
         "action-type": "custom",
         "default": "Alt+Shift+D"
-      },
-      "toggle_ingame": {
-        "title": "Toggle Ingame Overlay",
-        "action-type": "custom",
-        "default": "Alt+Shift+F"
       }
     },
     "launch_events": [

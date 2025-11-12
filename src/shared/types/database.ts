@@ -1,4 +1,4 @@
-import type { Dota2Player, GameModeInfo, TeamScore } from './dota2'
+import type { Dota2Player, Dota2TeamKey, GameModeInfo, TeamScore } from './dota2'
 
 export interface MatchRecord {
   uuid: string
@@ -7,7 +7,7 @@ export interface MatchRecord {
   matchId: string
   playerId?: string
   gameMode?: GameModeInfo
-  win?: boolean | null
+  winner?: Dota2TeamKey | undefined
   teamScore?: TeamScore
   players?: Dota2Player[]
 }
@@ -47,6 +47,6 @@ export interface ExportedDatabase {
   matches: MatchRecord[]
   players: PlayerRecord[]
   comments: CommentRecord[]
-  settings: SettingsRecord | null
+  // settings: SettingsRecord | null
 }
 

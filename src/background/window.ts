@@ -1,6 +1,6 @@
 import { Logger } from '../shared/utils/logger'
 
-type WindowName = 'background' | 'desktop' | 'ingame'
+type WindowName = 'background' | 'desktop' | 'history' | 'comment'
 
 interface WindowState {
   name: WindowName
@@ -9,6 +9,8 @@ interface WindowState {
 
 const DEFAULT_WINDOW_SIZES: Partial<Record<WindowName, { width: number; height: number }>> = {
   desktop: { width: 1280, height: 720 },
+  history: { width: 960, height: 540 },
+  comment: { width: 960, height: 540 },
 }
 
 interface ObtainWindowResult {
@@ -25,14 +27,12 @@ export class WindowManager {
   private windows = new Map<WindowName, WindowState>()
 
   constructor() {
-    ;(['background', 'desktop', 'ingame'] as WindowName[]).forEach((name) =>
+    ;(['background', 'desktop', 'history', 'comment'] as WindowName[]).forEach((name) =>
       this.windows.set(name, { name, isVisible: name === 'background' }),
     )
   }
 
   async show(name: WindowName, bringToFront = true) {
-
-
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
 
@@ -45,8 +45,6 @@ export class WindowManager {
   }
 
   async hide(name: WindowName) {
-
-
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
 
@@ -80,15 +78,18 @@ export class WindowManager {
     await this.toggle('desktop')
   }
 
-  async showIngame(payload?: unknown) {
-    await this.show('ingame')
-    if (payload && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('background:ingame:data', {
-          detail: payload,
-        }),
-      )
-    }
+  async showHistory() {
+    await this.show('history')
+    this.dispatchEvent('background:history:data')
+  }
+
+  async hideHistory() {
+    await this.hide('history')
+  }
+
+  async showComment() {
+    await this.show('comment')
+    this.dispatchEvent('background:comment:data')
   }
 
   getWindowState(name: WindowName) {
@@ -100,11 +101,15 @@ export class WindowManager {
   }
 
   async hideAll() {
-    await Promise.all([this.hide('desktop'), this.hide('ingame')])
+    await Promise.all([this.hide('desktop'), this.hide('history'), this.hide('comment')])
   }
 
   async dragMove(name: WindowName) {
     overwolf?.windows.dragMove(name)
+  }
+
+  hasVisibleForeground() {
+    return ['desktop', 'history', 'comment'].some((name) => this.isVisible(name as WindowName))
   }
 
   private updateVisibility(name: WindowName, isVisible: boolean) {
@@ -151,6 +156,15 @@ export class WindowManager {
     return new Promise((resolve) => {
       overwolf?.windows.bringToFront(windowId, () => resolve())
     })
+  }
+
+  private dispatchEvent(eventName: string, payload?: unknown) {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(
+      new CustomEvent(eventName, {
+        detail: payload,
+      }),
+    )
   }
 }
 

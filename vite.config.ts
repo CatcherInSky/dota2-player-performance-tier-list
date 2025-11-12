@@ -32,7 +32,8 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, 'background.html'),
         desktop: resolve(__dirname, 'desktop.html'),
-        ingame: resolve(__dirname, 'ingame.html'),
+        history: resolve(__dirname, 'history.html'),
+        comment: resolve(__dirname, 'comment.html'),
       },
       output: {
         entryFileNames: '[name].js',

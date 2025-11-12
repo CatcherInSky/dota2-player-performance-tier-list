@@ -13,11 +13,43 @@ import type { BackgroundApi } from '../../shared/types/api'
 import { useBackgroundApi } from '../../shared/hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../../shared/hooks/useBackgroundEvents'
 import { useI18n } from '../../shared/i18n'
-import type { GlobalMatchData } from '../../shared/types/dota2'
+import { Dota2Team, type GlobalMatchData } from '../../shared/types/dota2'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../shared/ui/tabs'
 import { DialogClose, DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../../shared/ui/dialog'
 
 type MatchTab = 'matches' | 'players' | 'comments'
+
+function normalizePlayerTeam(team: unknown): Dota2Team | null {
+  if (team === Dota2Team.RADIANT || team === Dota2Team.DIRE || team === Dota2Team.NONE) {
+    return team
+  }
+  if (team === 2) return Dota2Team.RADIANT
+  if (team === 3) return Dota2Team.DIRE
+  return null
+}
+
+function formatMatchResult(match: MatchRecord, t: (key: string) => string): string {
+  if (!match?.winner) {
+    return t('matches.unknown')
+  }
+
+  if (match.winner === Dota2Team.NONE) {
+    return t('matches.winner.none')
+  }
+
+  const playerTeam = normalizePlayerTeam(
+    match.players?.find((player) => player.steamId === match.playerId)?.team ?? null,
+  )
+
+  if (playerTeam && (playerTeam === Dota2Team.RADIANT || playerTeam === Dota2Team.DIRE)) {
+    if (match.winner === playerTeam) {
+      return t('matches.win')
+    }
+    return t('matches.lose')
+  }
+
+  return t(`matches.winner.${match.winner}`)
+}
 
 export function DesktopApp() {
   return (
@@ -63,6 +95,12 @@ function DesktopShell() {
         </button>
         <button className="btn" onClick={() => navigate('/home')}>
           {t('nav.home')}
+        </button>
+        <button className="btn" onClick={() => api?.windows.showHistory()}>
+          {t('nav.historyWindow')}
+        </button>
+        <button className="btn" onClick={() => api?.windows.showComment()}>
+          {t('nav.commentWindow')}
         </button>
         <div className="flex-1 text-center text-sm text-slate-400">{location.pathname}</div>
         <button className="btn" onClick={() => setSettingsOpen(true)}>
@@ -125,9 +163,7 @@ function HomePage({ api }: { api: BackgroundApi | undefined }) {
     reloadPlayers()
   })
 
-  useBackgroundEvents(api, 'match:update', () => {
-    reloadMatches()
-  })
+
 
   useBackgroundEvents(api, 'match:end', () => {
     reloadMatches()
@@ -148,10 +184,9 @@ function HomePage({ api }: { api: BackgroundApi | undefined }) {
             render: (row) => new Date(row.updatedAt).toLocaleString(),
           },
           {
-            key: 'win',
+            key: 'winner',
             label: t('matches.result'),
-            render: (row) =>
-              row.win === true ? t('matches.win') : row.win === false ? t('matches.lose') : t('matches.unknown'),
+            render: (row) => formatMatchResult(row, t),
           },
         ]}
         data={matches?.items ?? []}
@@ -295,9 +330,7 @@ function MatchDetailPage({ api }: { api: BackgroundApi | undefined }) {
           </div>
           <div>
             <div className="text-slate-400">{t('match.detail.winner')}</div>
-            <div>
-              {match.win === true ? t('matches.win') : match.win === false ? t('matches.lose') : t('matches.unknown')}
-            </div>
+            <div>{formatMatchResult(match, t)}</div>
           </div>
         </div>
       </section>
@@ -555,11 +588,11 @@ function MatchFiltersForm({
           />
           <InputField
             label={t('matches.filters.result')}
-            value={local.win ?? ''}
+            value={local.winner ?? ''}
             onChange={(value) =>
-              setLocal((prev) => ({ ...prev, win: value ? (value as MatchFilters['win']) : undefined }))
+              setLocal((prev) => ({ ...prev, winner: value ? (value as MatchFilters['winner']) : undefined }))
             }
-            placeholder="win / lose / unknown"
+            placeholder="radiant / dire / none / unknown"
           />
           <InputField
             label={t('matches.filters.time')}
