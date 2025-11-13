@@ -379,24 +379,13 @@ id
 
 
 # 问题修复
-1. 在维护全局数据对线的时候，应该更新比赛表记录而不是创建比赛表记录
-2. 检查manifest.json 对照https://dev.overwolf.com/ow-native/reference/manifest/manifest-json，理论上 调整窗口大小、最小化窗口等功能可以在上面配置 而不需要开发
-3. ingame的关闭按钮，应该是最小化而不是关闭页面，可以通过热键重新显示
 
 4 接收到开始信号 ingame没有自动弹出
 5. 使用热键只打开desktop 没有打开ingame，逻辑是，如果有desktop或者有ingame，按快捷键隐藏全部，如果都没有，则打开全部
 6. 主页的数据要实时刷新
-7. background.js:7 [DataService] Cannot ensure match record without match_id 为什么
-后续[BackgroundApp] onInfoUpdates2 Objectfeature: "match_info"info: match_info: {pseudo_match_id: '8551763011'}[[Prototype]]: Object[[Prototype]]: Object
-是有pseudo_match_id的
-
-8. desktop打开应该在主页
-9. ingame尺寸太小 和manifest中不一致
-10. 比赛详情中 玩家记录为空
-
 
 12 desktop打开应该在home
-13. 接收到开始信号 ingame还是没有自动弹出
+
 14. ingame评价组件应该是自动保存的 不需要手动点击保存按钮
 15. desktop和ingame数据应该自动刷新
 16. 游戏结束之后清空了评分数据
@@ -404,13 +393,49 @@ id
 
 
 
-# 数据库整合
-1. Dexie相关底层数据库模块，负责建表、CURD等基本操作
-2. 每个数据库都可以独立一个模块出来matches players comments settings，每个数据库的常用操作如下
-3. 比赛表，创建记录、不断更新比赛记录的字段、单条查询、条件分页查询
-4. 玩家表，创建玩家、更新字段、单条查询、条件分页查询
-5. 评价表，创建和更新、单条查询、条件分页查询
-6. 设置表，初始化创建和更新
-7. data类完全可以按照表的操作来拆分而不是合成一个DataService类
-8. 比赛表 winner字段修改成直接记录GlobalMatchData.game.winner的字符串而不是计算字段布尔值
-9. 设置表的初始化数据可以实现构建一个对象，后续我直接修改对象即可
+# 新UI修改
+
+
+2. history和comment打开时，优先查询最新的matches，再根据matches中的player字段，查询玩家历史评论或者显示评论编辑组件
+3. desktop 默认路由是home，目前/desktop路径的内容是空的，可以删掉
+
+
+5. 每个玩家卡片为108宽 90高，评论编辑展示内容：玩家名称，玩家英雄对应的图片、评分组件和输入框
+
+6. 历史卡片展示的内容：玩家名称、玩家英雄对应的图片、查询历史评分计算平均分（没有就显示暂无数据）
+
+
+先打开dota2再打开app有监听问题
+响应式布局
+
+现在来修改卡片样式
+
+现在修改history和comment卡片样式
+卡片不在固定宽高，每张卡片将总页面10等分
+@index.tsx (161-163) 用户名称超长换行而不是省略号
+英雄图片使用@dota2 这里面的 @观战.json (23) assets\dota2\npc_dota_hero_lich.webp使用这张图片 找不到才用问号
+以上是公共区域
+下面是各自的区域
+
+评论组件的下半部分，第一行星星评分组件没有问题
+第二行评分对应文案没有问题，但是字体可以适当放大，而且切换评分的时候，增加一个短暂的css动画：scale1.2 -> scale1 持续0.1秒
+第三行是input输入框没有问题，最后一行player.status没必要展示，机制上保证保存成功即可
+
+历史组件的下半部分：
+第一行应该是胜率，根据玩家id查询包含该玩家的比赛，根据该玩家所在的team字段和winner字段对照判断是否胜利，然后计算胜率（相关计算函数模块可以提取到utils）
+第一行展示 胜率：${计算}%
+第二行展示平均评分，根据玩家id查询所有评价，然后计算平均分，根据平均分展示对应文案，比如是3分文案是普通人，假如是3.0-3.5 显示普通人 3.5-4.0 显示 普通人+
+第二行展示 评价：${评价} ${平均分} 
+第三行展示 所有评论拼接到一起，超长换行，但是如果超出div就显示... 鼠标移上去再展示全部
+
+
+来修复历史和评论页面的玩家卡片排列顺序吧
+team radiant 的5个在左边 team dire的5个在右边
+同一个team里面
+
+
+
+# 进阶
+打开时根据游戏信息中的尺寸信息重新更新desktop history comment窗口大小位置
+设置窗口title 
+英文评价

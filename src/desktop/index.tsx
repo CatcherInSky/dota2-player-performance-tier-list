@@ -14,7 +14,7 @@ import type { BackgroundApi } from '../shared/types/api'
 import { useBackgroundApi } from '../shared/hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../shared/hooks/useBackgroundEvents'
 import { I18nProvider, useI18n } from '../shared/i18n'
-import { Dota2Team, type GlobalMatchData } from '../shared/types/dota2'
+import { Dota2Team, type Dota2Player } from '../shared/types/dota2'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../shared/ui/tabs'
 import { DialogClose, DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../shared/ui/dialog'
 import '../shared/styles/global.css'
@@ -69,6 +69,12 @@ function DesktopShell() {
   const [isSettingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
+    if (location.pathname === '/') {
+      navigate('/home', { replace: true })
+    }
+  }, [location.pathname, navigate])
+
+  useEffect(() => {
     const handler = (event: MouseEvent) => {
       if (event.button === 3) {
         event.preventDefault()
@@ -87,8 +93,8 @@ function DesktopShell() {
   }, [navigate])
 
   return (
-    <div className="flex h-screen flex-col bg-slate-900 text-slate-50">
-      <header className="flex items-center gap-2 border-b border-slate-700 px-4 py-2">
+    <div id="desktop-shell" className="flex h-screen flex-col bg-slate-900 text-slate-50">
+      <header id="desktop-shell-header" className="flex items-center gap-2 border-b border-slate-700 px-4 py-2">
         <button className="btn" onClick={() => navigate(-1)}>
           {t('nav.back')}
         </button>
@@ -109,7 +115,7 @@ function DesktopShell() {
           {t('nav.settings')}
         </button>
       </header>
-      <main className="flex-1 overflow-hidden">
+      <main id="desktop-shell-main" className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/home" element={<HomePage api={api} />} />
@@ -258,8 +264,9 @@ function HomePage({ api }: { api: BackgroundApi | undefined }) {
   )
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-4">
-      <TabsRoot value={activeTab} onValueChange={(value: string) => setActiveTab(value as MatchTab)}>
+    <div id="desktop-home" className="h-full overflow-y-auto px-6 py-4">
+      <div id="desktop-home-tabs">
+        <TabsRoot value={activeTab} onValueChange={(value: string) => setActiveTab(value as MatchTab)}>
         <TabsList className="mb-4 flex gap-2 border-b border-slate-700 pb-2">
           <TabsTrigger className="tab-trigger" value="matches">
             {t('home.matches')}
@@ -274,7 +281,8 @@ function HomePage({ api }: { api: BackgroundApi | undefined }) {
         <TabsContent value="matches">{renderMatches()}</TabsContent>
         <TabsContent value="players">{renderPlayers()}</TabsContent>
         <TabsContent value="comments">{renderComments()}</TabsContent>
-      </TabsRoot>
+        </TabsRoot>
+      </div>
     </div>
   )
 }
@@ -283,19 +291,52 @@ function MatchDetailPage({ api }: { api: BackgroundApi | undefined }) {
   const { matchId = '' } = useParams()
   const { t } = useI18n()
   const [match, setMatch] = useState<MatchRecord | null>(null)
-  const [state, setState] = useState<GlobalMatchData | null>(null)
+  const [players, setPlayers] = useState<Dota2Player[]>([])
 
   useEffect(() => {
     if (!api || !matchId) return
     let cancelled = false
-    api.data.getMatches({ matchId }).then((result) => {
-      if (!cancelled) {
-        setMatch(result.items[0] ?? null)
+    const loadMatch = async () => {
+      try {
+        const result = await api.data.getMatches({ matchId })
+        if (cancelled) return
+
+        let resolvedMatch: MatchRecord | null = result.items[0] ?? null
+        let rosterPlayers = resolvedMatch?.players ?? []
+
+        if (!rosterPlayers.length) {
+          try {
+            const { state, match: currentMatch } = await api.match.getCurrent()
+            rosterPlayers = state?.roster?.players ?? currentMatch?.players ?? []
+            if (!resolvedMatch && currentMatch?.matchId === matchId) {
+              resolvedMatch = currentMatch
+            } else if (
+              resolvedMatch &&
+              currentMatch &&
+              currentMatch.matchId === resolvedMatch.matchId &&
+              rosterPlayers.length &&
+              !resolvedMatch.players?.length
+            ) {
+              resolvedMatch = { ...resolvedMatch, players: rosterPlayers }
+            }
+          } catch (error) {
+            console.error('[MatchDetailPage] Failed to resolve players fallback', error)
+          }
+        }
+
+        if (cancelled) return
+
+        setMatch(resolvedMatch)
+        setPlayers(rosterPlayers)
+      } catch (error) {
+        if (!cancelled) {
+          setMatch(null)
+          setPlayers([])
+        }
+        console.error('[MatchDetailPage] Failed to load match details', error)
       }
-    })
-    api.match.getCurrent().then((current) => {
-      if (!cancelled) setState(current.state)
-    })
+    }
+    void loadMatch()
     return () => {
       cancelled = true
     }
@@ -303,16 +344,14 @@ function MatchDetailPage({ api }: { api: BackgroundApi | undefined }) {
 
   if (!match) {
     return (
-      <div className="flex h-full items-center justify-center text-slate-400">
+      <div id="desktop-match-detail-empty" className="flex h-full items-center justify-center text-slate-400">
         {t('home.noData')}
       </div>
     )
   }
 
-  const players = match.players ?? state?.roster.players ?? []
-
   return (
-    <div className="h-full overflow-y-auto px-6 py-4 space-y-6">
+    <div id="desktop-match-detail" className="h-full overflow-y-auto px-6 py-4 space-y-6">
       <section className="rounded-lg border border-slate-700 bg-slate-800/60 p-4">
         <h2 className="text-lg font-semibold">{t('match.detail.title')}</h2>
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
@@ -386,14 +425,14 @@ function PlayerDetailPage({ api }: { api: BackgroundApi | undefined }) {
 
   if (!player) {
     return (
-      <div className="flex h-full items-center justify-center text-slate-400">
+      <div id="desktop-player-detail-empty" className="flex h-full items-center justify-center text-slate-400">
         {t('home.noData')}
       </div>
     )
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-4 space-y-6">
+    <div id="desktop-player-detail" className="h-full overflow-y-auto px-6 py-4 space-y-6">
       <section className="rounded-lg border border-slate-700 bg-slate-800/60 p-4">
         <h2 className="text-lg font-semibold">{t('player.detail.title')}</h2>
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
@@ -545,7 +584,10 @@ function SettingsDialog({
     <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 bg-slate-950/70 backdrop-blur" />
-        <DialogContent className="fixed inset-0 m-auto flex h-[80vh] w-[min(720px,90vw)] flex-col rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-50 shadow-xl">
+        <DialogContent
+          id="desktop-settings-dialog"
+          className="fixed inset-0 m-auto flex h-[80vh] w-[min(720px,90vw)] flex-col rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-50 shadow-xl"
+        >
           <div className="mb-4 flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold">{t('settings.title')}</DialogTitle>
             <DialogClose className="btn-secondary">{t('ingame.close')}</DialogClose>

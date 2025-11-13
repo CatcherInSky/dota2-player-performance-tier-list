@@ -27,7 +27,7 @@
     },
 
     /* Types */
-    "types": ["@overwolf/types"]
+    "types": ["@overwolf/types", "vite/client"]
   },
   "include": ["src/**/*"],
   "references": []

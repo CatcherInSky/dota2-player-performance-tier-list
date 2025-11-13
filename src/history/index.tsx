@@ -5,128 +5,208 @@ import { useBackgroundApi } from '../shared/hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../shared/hooks/useBackgroundEvents'
 import { I18nProvider, useI18n } from '../shared/i18n'
 import type { MatchRecord } from '../shared/types/database'
-import type { GlobalMatchData } from '../shared/types/dota2'
 import { hydratePlayers, type PlayerViewModel } from '../shared/ingame/players'
+import { getHeroImage } from '../shared/utils/heroes'
 import '../shared/styles/global.css'
+import { joinComments, type PlayerHistoryStats } from '../shared/utils/playerStats'
+import { sortPlayersForOverlay } from '../shared/utils/playerOrder'
+type OverlayPlayer = PlayerViewModel & { historyStats?: PlayerHistoryStats }
+
+function formatAverageLabel(score: number | null | undefined, labels: Record<number, string>): string {
+  if (score == null) return '--'
+  const clamped = Math.max(1, Math.min(5, score))
+  const base = Math.min(5, Math.floor(clamped))
+  const label = labels[base] ?? ''
+  if (!label) return score.toFixed(1)
+  const fractional = clamped - base
+  if (fractional >= 0.5 && base < 5) {
+    return `${label}+`
+  }
+  return label
+}
 
 function HistoryApp() {
   const api = useBackgroundApi()
-  const { t } = useI18n()
+  const { t, ratingLabels } = useI18n()
   const [match, setMatch] = useState<MatchRecord | null>(null)
-  const [players, setPlayers] = useState<PlayerViewModel[]>([])
+  const [players, setPlayers] = useState<OverlayPlayer[]>([])
+  const queryMatchId = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('matchId')
+    } catch {
+      return null
+    }
+  }, [])
 
-  const loadPlayers = useCallback(
-    async (state: GlobalMatchData, nextMatch: MatchRecord | null) => {
-      if (!api) return
-      try {
-        const data = await hydratePlayers(api, state, nextMatch, 'history')
-        setPlayers(data)
-      } catch (error) {
-        console.error('[HistoryApp] Failed to hydrate players', error)
+  const loadLatestMatch = useCallback(async () => {
+    if (!api) return
+    try {
+      const targetMatchId = queryMatchId
+      let latestMatch: MatchRecord | null = null
+
+      if (targetMatchId) {
+        const { items } = await api.data.getMatches({ matchId: targetMatchId, page: 1, pageSize: 1 })
+        latestMatch = items[0] ?? null
+      } else {
+        const { items } = await api.data.getMatches({ page: 1, pageSize: 1 })
+        latestMatch = items[0] ?? null
       }
-    },
-    [api],
-  )
+
+      let rosterPlayers = latestMatch?.players ?? []
+
+      if (!rosterPlayers.length) {
+        try {
+          const { state, match: currentMatch } = await api.match.getCurrent()
+          const fallbackPlayers = state?.roster?.players ?? currentMatch?.players ?? []
+          const matchesTarget = targetMatchId ? currentMatch?.matchId === targetMatchId : true
+          if (matchesTarget) {
+            rosterPlayers = fallbackPlayers
+            if (!latestMatch && currentMatch) {
+              latestMatch = currentMatch
+            } else if (
+              latestMatch &&
+              currentMatch &&
+              currentMatch.matchId === latestMatch.matchId &&
+              rosterPlayers.length
+            ) {
+              latestMatch = { ...latestMatch, players: rosterPlayers }
+            }
+          }
+        } catch (error) {
+          console.error('[HistoryApp] Failed to resolve match state fallback', error)
+        }
+      }
+
+      setMatch(latestMatch)
+
+      if (!rosterPlayers.length) {
+        setPlayers([])
+        return
+      }
+
+      const data = await hydratePlayers(api, rosterPlayers, latestMatch, 'history')
+      setPlayers(data as OverlayPlayer[])
+    } catch (error) {
+      console.error('[HistoryApp] Failed to load latest match data', error)
+    }
+  }, [api, queryMatchId])
 
   useEffect(() => {
     if (!api) return
-    let cancelled = false
-    api.match
-      .getCurrent()
-      .then(({ state, match: currentMatch }) => {
-        if (cancelled) return
-        setMatch(currentMatch)
-        return loadPlayers(state, currentMatch)
-      })
-      .catch((error) => {
-        console.error('[HistoryApp] Failed to fetch current match', error)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [api, loadPlayers])
+    void loadLatestMatch()
+  }, [api, loadLatestMatch])
 
   useEffect(() => {
     if (!api) return
 
     const handler = () => {
-      void api.match
-        .getCurrent()
-        .then(({ state, match: currentMatch }) => {
-          setMatch(currentMatch)
-          return loadPlayers(state, currentMatch)
-        })
-        .catch((error) => {
-          console.error('[HistoryApp] Failed to refresh match data', error)
-        })
+      void loadLatestMatch()
     }
 
     window.addEventListener('background:history:data', handler)
     return () => {
       window.removeEventListener('background:history:data', handler)
     }
-  }, [api, loadPlayers])
+  }, [api, loadLatestMatch])
 
-  useBackgroundEvents(api, 'match:start', async () => {
-    if (!api) return
-    const { state, match: currentMatch } = await api.match.getCurrent()
-    setMatch(currentMatch)
-    await loadPlayers(state, currentMatch)
+  useBackgroundEvents(api, 'match:start', () => {
+    void loadLatestMatch()
   })
 
-  useBackgroundEvents(api, 'match:end', async () => {
-    if (!api) return
-    const { state, match: currentMatch } = await api.match.getCurrent()
-    setMatch(currentMatch)
-    await loadPlayers(state, currentMatch)
+  useBackgroundEvents(api, 'match:end', () => {
+    void loadLatestMatch()
   })
+
+  useEffect(() => {
+    if (!players.length) return
+    const debugInfo = players.map((player, index) => ({
+      index,
+      playerId: player.playerId,
+      name: player.name,
+      team: player.team,
+      role: player.role,
+      playerIndex: player.playerIndex,
+      teamSlot: player.teamSlot,
+      historyCount: player.history?.length ?? 0,
+      averageScore: player.historyStats?.averageScore ?? null,
+    }))
+    console.groupCollapsed('[HistoryOverlay] Players (match)', match?.matchId ?? 'unknown')
+    console.table(debugInfo)
+    console.groupEnd()
+  }, [match?.matchId, players])
 
   const historyContent = useMemo(() => {
     if (players.length === 0) {
-      return <div className="text-center text-sm text-slate-400">{t('ingame.history.empty')}</div>
+      return (
+        <div id="history-content-empty" className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+          {t('ingame.history.empty')}
+        </div>
+      )
     }
+
+    const orderedPlayers = sortPlayersForOverlay(players, 'history') as OverlayPlayer[]
+
     return (
-      <div className="space-y-3">
-        {players.map((player) => (
-          <div key={player.playerId} className="rounded border border-slate-700 bg-slate-900/70 p-3">
-            <div className="flex justify-between text-sm text-slate-200">
-              <span>{player.name ?? player.playerId}</span>
-              <span>{player.hero ?? '--'}</span>
-            </div>
-            <div className="mt-2 space-y-2">
-              {player.history.length === 0 && <div className="text-xs text-slate-400">{t('ingame.history.empty')}</div>}
-              {player.history.map((comment) => (
-                <div key={comment.uuid} className="rounded bg-slate-800/70 px-3 py-2 text-xs text-slate-300">
-                  <div className="flex justify-between">
-                    <span>⭐ {comment.score}</span>
-                    <span>{new Date(comment.updatedAt).toLocaleString()}</span>
+      <div
+        id="history-player-list"
+        className="grid h-full w-full grid-cols-10 gap-2 auto-rows-fr"
+        style={{ gridAutoRows: 'minmax(0, 120px)' }}
+      >
+        {orderedPlayers.map((player) => {
+          const heroImage = getHeroImage(player.hero)
+          const stats = player.historyStats
+          const winRateText = stats?.winRate != null ? `${stats.winRate}%` : '--'
+          const averageScore = stats?.averageScore ?? null
+          const averageLabel = formatAverageLabel(averageScore, ratingLabels)
+          const { text: commentSummary, hasContent } = joinComments(stats?.comments)
+
+          return (
+            <div
+              key={player.playerId}
+              className="flex h-full max-h-[120px] flex-col justify-between rounded border border-slate-700 bg-slate-900/80 p-2 shadow-sm"
+            >
+              <div className="flex items-center gap-1">
+                {heroImage ? (
+                  <img
+                    src={heroImage}
+                    alt={player.hero ?? 'hero'}
+                    className="h-8 w-8 flex-shrink-0 rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-300">
+                    ?
                   </div>
-                  {comment.comment && <p className="mt-1">{comment.comment}</p>}
+                )}
+                <div className="flex-1 break-words text-[11px] font-medium leading-tight">
+                  {player.name ?? player.playerId}
                 </div>
-              ))}
+              </div>
+              <div className="mt-2 flex flex-1 flex-col justify-between gap-1 rounded bg-slate-800/60 p-2 text-[11px] text-slate-200">
+                <div className="leading-tight">胜率：{winRateText}</div>
+                <div className="leading-tight">
+                  评价：{averageLabel} {averageScore != null ? averageScore.toFixed(1) : '--'}
+                </div>
+                <div
+                  className="truncate leading-tight"
+                  title={hasContent ? commentSummary : undefined}
+                >
+                  点评：{commentSummary}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
-  }, [players, t])
+  }, [match, players, ratingLabels, t])
 
   return (
-    <div className="flex h-screen flex-col bg-slate-900/90 p-4 text-slate-50 shadow-xl">
-      <div className="mb-4 flex items-center gap-2 text-sm text-slate-200">
-        <button className="btn-secondary" onClick={() => api?.windows.hideHistory()}>
-          {t('ingame.close')}
-        </button>
-        <button className="btn-secondary" onClick={() => api?.windows.dragHistory()}>
-          Drag
-        </button>
+    <div id="history-window" className="flex h-full w-full flex-col rounded-lg border border-slate-700 bg-slate-900/90 text-slate-50 shadow-xl">
+      <div id="history-window-header" className="flex items-center justify-between px-2 py-1 text-[11px]">
+        {match?.matchId && <div className="text-[10px] text-slate-400">Match ID: {match.matchId}</div>}
       </div>
-      <div className="flex-1 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900/80 p-3">
-        <h2 className="mb-3 text-lg font-semibold">{t('ingame.history.title')}</h2>
+      <div id="history-window-body" className="h-full w-full overflow-y-auto px-2 pb-1">
         {historyContent}
-        {match?.matchId && (
-          <div className="mt-4 text-right text-xs text-slate-400">Match ID: {match.matchId}</div>
-        )}
       </div>
     </div>
   )

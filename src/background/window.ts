@@ -9,8 +9,8 @@ interface WindowState {
 
 const DEFAULT_WINDOW_SIZES: Partial<Record<WindowName, { width: number; height: number }>> = {
   desktop: { width: 1280, height: 720 },
-  history: { width: 960, height: 540 },
-  comment: { width: 960, height: 540 },
+  history: { width: 1920, height: 200 },
+  comment: { width: 1920, height: 200 },
 }
 
 interface ObtainWindowResult {

@@ -118,7 +118,7 @@ export class PlayersRepository {
     ])
 
     if (!player) {
-      return { player: null, comments }
+      return { player: null, comments, matches: [] }
     }
 
     const matchRecords = player.matchList.length
@@ -136,7 +136,7 @@ export class PlayersRepository {
       averageScore,
     }
 
-    return { player: detailed, comments }
+    return { player: detailed, comments, matches: matchRecords }
   }
 }
 

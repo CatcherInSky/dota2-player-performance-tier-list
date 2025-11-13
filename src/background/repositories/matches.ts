@@ -26,6 +26,10 @@ export class MatchesRepository {
       throw new Error(`Match record ${matchId} not found and creation not allowed`)
     }
 
+    if (existing && existing.winner != null) {
+      return existing
+    }
+
     const timestamp = Date.now()
     const record: MatchRecord = {
       uuid: existing?.uuid ?? generateId(),
@@ -47,6 +51,10 @@ export class MatchesRepository {
   async finalizeFromState(state: GlobalMatchData): Promise<MatchRecord> {
     const record = await this.createOrUpdateFromState(state, { allowCreate: true })
 
+    if (record.winner != null) {
+      return record
+    }
+
     record.updatedAt = Date.now()
     record.winner = state.game.winner ?? record.winner
     record.teamScore = state.match_info.team_score
@@ -57,6 +65,9 @@ export class MatchesRepository {
 
   async update(matchId: string, updates: Partial<MatchRecord>): Promise<void> {
     await db.matches.where('matchId').equals(matchId).modify((record) => {
+      if (record.winner != null) {
+        return
+      }
       Object.assign(record, updates, { updatedAt: Date.now() })
     })
   }

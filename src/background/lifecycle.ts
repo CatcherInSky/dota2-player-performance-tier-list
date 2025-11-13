@@ -136,11 +136,6 @@ export class MatchTracker {
 
   handleNewEvents(payload: Dota2EventPayload): MatchSignal | undefined {
     let signal: MatchSignal | undefined
-    if(this.shouldEnd(payload)) {
-      this.logger.info('match:', this.state)
-      signal = 'end'
-      return signal
-    }
     payload.events.forEach((event) => {
       const data = safeJsonParse<Record<string, unknown>>(event.data)
 
@@ -185,16 +180,17 @@ export class MatchTracker {
       if (event.name === 'match_ended') {
         const payload = data as {
           winner?: Dota2TeamKey
-          match_outcome?: Dota2TeamKey
         }
-        const winner = payload?.winner
-        if (winner && Object.values(Dota2Team).includes(winner as Dota2Team)) {
-          this.state.game.winner = winner
-        }
-        
+        const winner = payload?.winner 
+        this.state.game.winner = winner as Dota2Team
       }
     })
 
+    if(this.shouldEnd(payload)) {
+      this.logger.info('match:', this.state)
+      signal = 'end'
+      return signal
+    }
     this.logger.info('match:', this.state)
     return signal
   }

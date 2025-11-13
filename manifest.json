@@ -43,22 +43,6 @@
         "resizable": true,
         "show_minimize": true,
         "clickthrough": false,
-        "size": {
-          "width": 1280,
-          "height": 720
-        },
-        "min_size": {
-          "width": 960,
-          "height": 540
-        },
-        "max_size": {
-          "width": 1920,
-          "height": 1080
-        },
-        "start_position": {
-          "top": 100,
-          "left": 100
-        },
         "mute": false,
         "open_dev_tools": false
       },
@@ -69,18 +53,6 @@
         "resizable": true,
         "show_minimize": true,
         "clickthrough": false,
-        "size": {
-          "width": 960,
-          "height": 540
-        },
-        "min_size": {
-          "width": 480,
-          "height": 270
-        },
-        "start_position": {
-          "top": 100,
-          "left": 100
-        },
         "mute": false
       },
       "comment": {
@@ -90,18 +62,6 @@
         "resizable": true,
         "show_minimize": true,
         "clickthrough": false,
-        "size": {
-          "width": 960,
-          "height": 540
-        },
-        "min_size": {
-          "width": 480,
-          "height": 270
-        },
-        "start_position": {
-          "top": 100,
-          "left": 100
-        },
         "mute": false
       }
     },

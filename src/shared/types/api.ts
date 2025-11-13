@@ -42,6 +42,12 @@ export interface PaginatedResult<T> {
   total: number
 }
 
+export interface PlayerHistoryResponse {
+  player: PlayerWithStats | null
+  comments: CommentRecord[]
+  matches: MatchRecord[]
+}
+
 export interface PlayerWithStats extends PlayerRecord {
   firstEncounter?: number
   lastEncounter?: number
@@ -89,7 +95,7 @@ export type BackgroundApi = {
     getMatches(filters?: MatchFilters): Promise<PaginatedResult<MatchRecord>>
     getPlayers(filters?: PlayerFilters): Promise<PaginatedResult<PlayerWithStats>>
     getComments(filters?: CommentFilters): Promise<PaginatedResult<CommentWithPlayer>>
-    getPlayerHistory(playerId: string): Promise<{ player: PlayerWithStats | null; comments: CommentRecord[] }>
+    getPlayerHistory(playerId: string): Promise<PlayerHistoryResponse>
     saveComment(payload: SaveCommentPayload): Promise<CommentRecord>
   }
   match: {

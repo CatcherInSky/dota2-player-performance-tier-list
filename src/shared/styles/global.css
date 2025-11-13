@@ -6,12 +6,17 @@
   color-scheme: light dark;
 }
 
+html,
+body {
+  @apply h-full;
+}
+
 body {
   @apply bg-slate-950 text-slate-50 font-sans;
 }
 
 #root {
-  @apply min-h-screen;
+  @apply h-full w-full;
 }
 
 @layer components {

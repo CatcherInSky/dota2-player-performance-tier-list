@@ -1,6 +1,7 @@
 import type { BackgroundApi, CommentWithPlayer } from '../types/api'
 import type { MatchRecord } from '../types/database'
-import type { Dota2Player, GlobalMatchData } from '../types/dota2'
+import type { Dota2Player, Dota2TeamKey, GlobalMatchData } from '../types/dota2'
+import { buildPlayerHistoryStats, normalizeTeam, type PlayerHistoryStats } from '../utils/playerStats'
 
 export type IngameMode = 'history' | 'editor'
 
@@ -11,33 +12,82 @@ export interface PlayerViewModel {
   comment?: string
   score?: number
   history: CommentWithPlayer[]
-  status?: string
+  historyStats?: PlayerHistoryStats
+  team?: Dota2TeamKey | null
+  role?: number | null
+  playerIndex?: number | null
+  teamSlot?: number | null
 }
 
 export async function hydratePlayers(
   api: BackgroundApi,
-  state: GlobalMatchData,
+  source: GlobalMatchData | Dota2Player[] | undefined,
   match: MatchRecord | null,
   mode: IngameMode,
 ): Promise<PlayerViewModel[]> {
-  const roster = state.roster.players ?? match?.players ?? []
-  const uniquePlayers = deduplicatePlayers(roster)
+  const rosterPlayers = Array.isArray(source) ? source : source?.roster?.players ?? []
+  const uniquePlayers = deduplicatePlayers(rosterPlayers.length ? rosterPlayers : match?.players ?? [])
+  const matchId = match?.matchId
+
+  let matchComments: CommentWithPlayer[] = []
+  if (mode === 'editor' && matchId) {
+    try {
+      const response = await api.data.getComments({ matchId, page: 1, pageSize: 100 })
+      matchComments = response.items ?? []
+    } catch (error) {
+      console.error('[hydratePlayers] Failed to fetch match comments', error)
+      matchComments = []
+    }
+  }
 
   const result = await Promise.all(
     uniquePlayers.map(async (player) => {
-      let historyResponse: { items: CommentWithPlayer[] } = { items: [] }
-      if (player.steamId) {
-        historyResponse = await api.data.getComments({ playerId: player.steamId, pageSize: 5 })
+      const steamId = player.steamId
+      const fallbackId = `unknown-${player.player_index}`
+      const playerId = steamId ?? fallbackId
+
+      let history: CommentWithPlayer[] = []
+      let currentComment: CommentWithPlayer | undefined
+      let historyStats: PlayerHistoryStats | undefined
+
+      const team = normalizeTeam(player.team)
+      const role = typeof player.role === 'number' ? player.role : null
+      const playerIndex = typeof player.player_index === 'number' ? player.player_index : null
+      const teamSlot = typeof player.team_slot === 'number' ? player.team_slot : null
+
+      if (steamId) {
+        if (mode === 'history') {
+          try {
+            const response = await api.data.getPlayerHistory(steamId)
+            const commentRecords = (response as { comments?: CommentWithPlayer[] }).comments ?? []
+            const matchRecords = (response as { matches?: MatchRecord[] }).matches ?? []
+            const historyRecords: CommentWithPlayer[] = commentRecords.map((item) => ({ ...item }))
+            history = historyRecords
+            historyStats = buildPlayerHistoryStats(matchRecords, commentRecords, steamId)
+          } catch (error) {
+            console.error('[hydratePlayers] Failed to fetch player history', steamId, error)
+          }
+          if (matchId) {
+            currentComment = history.find((item) => item.matchId === matchId)
+          }
+        } else if (mode === 'editor') {
+          history = matchComments.filter((item) => item.playerId === steamId)
+          currentComment = history[0]
+        }
       }
-      const currentMatch = match ? historyResponse.items.find((item) => item.matchId === match.matchId) : undefined
 
       return {
-        playerId: player.steamId ?? `unknown-${player.player_index}`,
+        playerId,
         name: player.name,
         hero: player.hero,
-        history: historyResponse.items,
-        comment: mode === 'editor' ? currentMatch?.comment ?? '' : undefined,
-        score: mode === 'editor' ? currentMatch?.score ?? 3 : currentMatch?.score,
+        history,
+        comment: mode === 'editor' ? currentComment?.comment ?? '' : undefined,
+        score: mode === 'editor' ? currentComment?.score ?? 3 : currentComment?.score,
+        historyStats,
+        team,
+        role,
+        playerIndex,
+        teamSlot,
       }
     }),
   )
