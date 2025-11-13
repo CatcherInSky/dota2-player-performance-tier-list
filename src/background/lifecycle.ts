@@ -15,6 +15,7 @@ import {
 } from '../shared/types/dota2'
 import { safeJsonParse } from '../shared/utils/json'
 import { Logger } from '../shared/utils/logger'
+import { filterRosterPlayers } from '../shared/utils/roster'
 
 type DotaInfoUpdate =
   | Dota2InfoUpdates<'match_info', MatchInfo>
@@ -101,7 +102,8 @@ export class MatchTracker {
           players = Object.values(parsed as Record<string, Dota2Player>)
         }
         if (players) {
-          this.state.roster.players = players.map((player) => {
+          const validPlayers = filterRosterPlayers(players)
+          this.state.roster.players = validPlayers.map((player) => {
             const rawTeam = player.team
             let team: Dota2Player['team'] = rawTeam
             if (typeof rawTeam === 'number') {

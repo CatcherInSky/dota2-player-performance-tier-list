@@ -145,6 +145,8 @@ function HistoryApp() {
     }
 
     const orderedPlayers = sortPlayersForOverlay(players, 'history') as OverlayPlayer[]
+    const winningTeam = match?.winner
+    const myPlayerId = match?.playerId ?? null
 
     return (
       <div
@@ -159,13 +161,22 @@ function HistoryApp() {
           const averageScore = stats?.averageScore ?? null
           const averageLabel = formatAverageLabel(averageScore, ratingLabels)
           const { text: commentSummary, hasContent } = joinComments(stats?.comments)
+          const team = player.team
+          const isRadiant = team === 'radiant'
+          const isDire = team === 'dire'
+          const backgroundColor = isRadiant ? '#29880e' : isDire ? '#dd3d1d' : '#1f293780'
+          const isWinner =
+            winningTeam && winningTeam !== 'none' && team && team === winningTeam
+          const borderColor = isWinner ? '#ffff2c' : '#334155'
+          const isSelf = myPlayerId != null && player.playerId === myPlayerId
 
           return (
             <div
               key={player.playerId}
-              className="flex h-full max-h-[120px] flex-col justify-between rounded border border-slate-700 bg-slate-900/80 p-2 shadow-sm"
+              className="flex h-full max-h-[120px] flex-col justify-between rounded border p-2 shadow-sm text-slate-50"
+              style={{ borderColor }}
             >
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1" style={{ backgroundColor: isSelf ? '#317595' : backgroundColor }}>
                 {heroImage ? (
                   <img
                     src={heroImage}
@@ -173,15 +184,17 @@ function HistoryApp() {
                     className="h-8 w-8 flex-shrink-0 rounded object-cover"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-300">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-black/30 text-[10px] text-slate-200">
                     ?
                   </div>
                 )}
-                <div className="flex-1 break-words text-[11px] font-medium leading-tight">
+                <div
+                  className="flex-1 break-words text-[11px] font-medium leading-tight"
+                >
                   {player.name ?? player.playerId}
                 </div>
               </div>
-              <div className="mt-2 flex flex-1 flex-col justify-between gap-1 rounded bg-slate-800/60 p-2 text-[11px] text-slate-200">
+              <div className="mt-2 flex flex-1 flex-col justify-between gap-1 rounded bg-black/25 p-2 text-[11px] text-slate-100">
                 <div className="leading-tight">胜率：{winRateText}</div>
                 <div className="leading-tight">
                   评价：{averageLabel} {averageScore != null ? averageScore.toFixed(1) : '--'}

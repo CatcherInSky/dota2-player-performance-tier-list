@@ -439,3 +439,7 @@ team radiant 的5个在左边 team dire的5个在右边
 打开时根据游戏信息中的尺寸信息重新更新desktop history comment窗口大小位置
 设置窗口title 
 英文评价
+快捷键失效
+重新检查图片命名
+
+绿色 #29880e 红色 #dd3d1d 黄色 #ffff2c 蓝色 #317595

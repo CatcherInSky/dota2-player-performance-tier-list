@@ -168,6 +168,8 @@ function CommentApp() {
     }
 
     const orderedPlayers = sortPlayersForOverlay(players, 'comment')
+    const winningTeam = match?.winner
+    const myPlayerId = match?.playerId ?? null
 
     return (
       <div
@@ -178,27 +180,39 @@ function CommentApp() {
         {orderedPlayers.map((player) => {
           const heroImage = getHeroImage(player.hero)
           const isEditable = !player.playerId.startsWith('unknown-')
+          const team = player.team
+          const isRadiant = team === 'radiant'
+          const isDire = team === 'dire'
+          const backgroundColor = isRadiant ? '#29880e' : isDire ? '#dd3d1d' : '#1f293780'
+          const isWinner =
+            winningTeam && winningTeam !== 'none' && team && team === winningTeam
+          const borderColor = isWinner ? '#ffff2c' : '#334155'
+          const isSelf = myPlayerId != null && player.playerId === myPlayerId
+
           return (
             <div
               key={player.playerId}
-              className="flex h-full max-h-[120px] flex-col rounded border border-slate-700 bg-slate-900/80 p-2 shadow-sm"
+              className="flex h-full max-h-[120px] flex-col rounded border p-2 shadow-sm text-slate-50"
+              style={{ borderColor }}
             >
-            <div className="flex items-center gap-1">
-              {heroImage ? (
-                <img
-                  src={heroImage}
-                  alt={player.hero ?? 'hero'}
-                  className="h-8 w-8 flex-shrink-0 rounded object-cover"
-                />
-              ) : (
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-300">
-                  ?
+              <div className="flex items-center gap-1" style={{ backgroundColor: isSelf ? '#317595' : backgroundColor }}>
+                {heroImage ? (
+                  <img
+                    src={heroImage}
+                    alt={player.hero ?? 'hero'}
+                    className="h-8 w-8 flex-shrink-0 rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-black/30 text-[10px] text-slate-200">
+                    ?
+                  </div>
+                )}
+                <div
+                  className="flex-1 break-words text-[11px] font-medium leading-tight"
+                >
+                  {player.name ?? player.playerId}
                 </div>
-              )}
-              <div className="flex-1 break-words text-[11px] font-medium leading-tight">
-                {player.name ?? player.playerId}
               </div>
-            </div>
               <div className="mt-1 flex justify-center">
                 <StarRating
                   score={player.score ?? 3}
@@ -210,7 +224,7 @@ function CommentApp() {
               </div>
               <div className="mt-2 flex flex-1 flex-col">
                 <textarea
-                  className="min-h-10 w-full flex-1 resize-none rounded border border-slate-700 bg-slate-950/60 px-2 py-1 text-[11px] leading-tight focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-10 w-full flex-1 resize-none rounded border border-white/40 bg-black/30 px-2 py-1 text-[11px] leading-tight focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder={t('ingame.comment.placeholder')}
                   value={player.comment ?? ''}
                   onChange={(event) => handleCommentChange(player.playerId, event.target.value)}

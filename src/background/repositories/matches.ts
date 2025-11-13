@@ -1,11 +1,12 @@
 import { db } from '../db'
 import type { MatchFilters, PaginatedResult } from '../../shared/types/api'
 import type { MatchRecord } from '../../shared/types/database'
-import type { GlobalMatchData } from '../../shared/types/dota2'
+import type { GlobalMatchData, Dota2Player } from '../../shared/types/dota2'
 import { generateId } from '../../shared/utils/id'
 import { Logger } from '../../shared/utils/logger'
 import { DEFAULT_PAGE_SIZE } from './pagination'
 import { Dota2Team } from '../../shared/types/dota2'
+import { filterRosterPlayers } from '../../shared/utils/roster'
 
 interface UpsertOptions {
   allowCreate?: boolean
@@ -31,6 +32,8 @@ export class MatchesRepository {
     }
 
     const timestamp = Date.now()
+    const rosterPlayers = this.filterPlayers(state.roster.players)
+
     const record: MatchRecord = {
       uuid: existing?.uuid ?? generateId(),
       createdAt: existing?.createdAt ?? timestamp,
@@ -40,7 +43,7 @@ export class MatchesRepository {
       gameMode: state.match_info.game_mode,
       winner: state.game.winner ?? undefined,
       teamScore: state.match_info.team_score,
-      players: state.roster.players,
+      players: rosterPlayers,
     }
 
     await db.matches.put(record)
@@ -58,6 +61,7 @@ export class MatchesRepository {
     record.updatedAt = Date.now()
     record.winner = state.game.winner ?? record.winner
     record.teamScore = state.match_info.team_score
+    record.players = this.filterPlayers(state.roster.players)
     await db.matches.put(record)
     this.logger.info('Finalized match record', record.matchId)
     return record
@@ -117,6 +121,10 @@ export class MatchesRepository {
       pageSize,
       total,
     }
+  }
+
+  private filterPlayers(players?: Dota2Player[] | null): Dota2Player[] {
+    return filterRosterPlayers(players)
   }
 }
 

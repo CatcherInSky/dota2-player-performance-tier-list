@@ -2,6 +2,7 @@ import type { BackgroundApi, CommentWithPlayer } from '../types/api'
 import type { MatchRecord } from '../types/database'
 import type { Dota2Player, Dota2TeamKey, GlobalMatchData } from '../types/dota2'
 import { buildPlayerHistoryStats, normalizeTeam, type PlayerHistoryStats } from '../utils/playerStats'
+import { filterRosterPlayers } from '../utils/roster'
 
 export type IngameMode = 'history' | 'editor'
 
@@ -25,8 +26,11 @@ export async function hydratePlayers(
   match: MatchRecord | null,
   mode: IngameMode,
 ): Promise<PlayerViewModel[]> {
-  const rosterPlayers = Array.isArray(source) ? source : source?.roster?.players ?? []
-  const uniquePlayers = deduplicatePlayers(rosterPlayers.length ? rosterPlayers : match?.players ?? [])
+  const rawPlayers = Array.isArray(source) ? source : source?.roster?.players ?? []
+  const rosterPlayers = filterRosterPlayers(rawPlayers)
+  const fallbackMatchPlayers = match?.players ? filterRosterPlayers(match.players) : []
+  const basePlayers = rosterPlayers.length ? rosterPlayers : fallbackMatchPlayers
+  const uniquePlayers = deduplicatePlayers(basePlayers)
   const matchId = match?.matchId
 
   let matchComments: CommentWithPlayer[] = []

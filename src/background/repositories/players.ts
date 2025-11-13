@@ -6,10 +6,11 @@ import type { PlayerRecord } from '../../shared/types/database'
 import type { GlobalMatchData } from '../../shared/types/dota2'
 import { generateId } from '../../shared/utils/id'
 import { paginate, DEFAULT_PAGE_SIZE } from './pagination'
+import { filterRosterPlayers } from '../../shared/utils/roster'
 
 export class PlayersRepository {
   async syncFromMatch(state: GlobalMatchData): Promise<void> {
-    const players = state.roster.players ?? []
+    const players = filterRosterPlayers(state.roster.players)
     if (!players.length) return
 
     const matchId = state.match_info.pseudo_match_id

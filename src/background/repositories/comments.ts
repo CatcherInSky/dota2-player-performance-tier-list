@@ -6,17 +6,19 @@ import type { GlobalMatchData } from '../../shared/types/dota2'
 import { generateId } from '../../shared/utils/id'
 import { Logger } from '../../shared/utils/logger'
 import { DEFAULT_PAGE_SIZE } from './pagination'
+import { filterRosterPlayers } from '../../shared/utils/roster'
 
 export class CommentsRepository {
   private logger = new Logger({ namespace: 'CommentsRepository' })
 
   async ensurePlaceholders(matchId: string, players: GlobalMatchData['roster']['players']) {
-    if (!players?.length) return
+    const validPlayers = filterRosterPlayers(players)
+    if (!validPlayers.length) return
     const timestamp = Date.now()
 
     const executor = async () => {
       const records: CommentRecord[] = []
-      for (const player of players ?? []) {
+      for (const player of validPlayers) {
         if (!player?.steamId) continue
         const existing = await db.comments.where('[matchId+playerId]').equals([matchId, player.steamId]).first()
         if (existing) continue
