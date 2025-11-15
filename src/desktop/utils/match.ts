@@ -21,7 +21,10 @@ export function formatMatchResult(match: MatchRecord, t: Translate): string {
     return t('matches.winner.none')
   }
 
-  const playerTeam = normalizePlayerTeam(match.players?.find((player) => player.steamId === match.playerId)?.team ?? null)
+  // 优先使用match.me.team，如果没有则从players数组中查找
+  const playerTeam = match.me?.team
+    ? normalizePlayerTeam(match.me.team)
+    : normalizePlayerTeam(match.players?.find((player) => player.steamId === match.playerId)?.team ?? null)
 
   if (playerTeam && (playerTeam === Dota2Team.RADIANT || playerTeam === Dota2Team.DIRE)) {
     if (match.winner === playerTeam) {

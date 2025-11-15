@@ -1,4 +1,4 @@
-import type { Dota2TeamKey, GlobalMatchData } from './dota2'
+import type { Dota2TeamKey, GlobalMatchData, Dota2GameState } from './dota2'
 import type {
   CommentRecord,
   ExportedDatabase,
@@ -18,12 +18,14 @@ export interface MatchFilters extends PaginationRequest {
   endTime?: number
   gameMode?: string
   winner?: Dota2TeamKey | 'unknown'
+  gameState?: Dota2GameState
   dateRange?: { start?: Date; end?: Date }
 }
 
 export interface PlayerFilters extends PaginationRequest {
   keyword?: string
   matchId?: string
+  hero?: string
   startTime?: number
   endTime?: number
 }
@@ -56,6 +58,12 @@ export interface PlayerWithStats extends PlayerRecord {
   lastEncounter?: number
   encounterCount: number
   averageScore: number | null
+  teammateGames?: number
+  teammateWins?: number
+  teammateWinRate?: number | null
+  opponentGames?: number
+  opponentWins?: number
+  opponentWinRate?: number | null
 }
 
 export interface CommentWithPlayer extends CommentRecord {
@@ -109,6 +117,7 @@ export type BackgroundApi = {
     update(payload: Partial<SettingsRecord>): Promise<SettingsRecord>
     export(): Promise<ExportedDatabase>
     import(payload: ExportedDatabase): Promise<void>
+    importMatch(matchData: GlobalMatchData): Promise<MatchRecord>
     clear(): Promise<void>
   }
   events: {

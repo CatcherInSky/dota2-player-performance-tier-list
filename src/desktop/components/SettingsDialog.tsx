@@ -1,8 +1,10 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DEFAULT_RATING_LABELS, useI18n } from '../../shared/i18n'
 import type { BackgroundApi } from '../../shared/types/api'
 import type { Language, RatingLabelKey } from '../../shared/types/database'
+import type { GlobalMatchData } from '../../shared/types/dota2'
+import { Button } from '../../shared/ui/button'
 import {
   DialogClose,
   DialogContent,
@@ -95,6 +97,11 @@ export function SettingsDialog({ api, open, onOpenChange }: SettingsDialogProps)
               <h3 className="text-sm font-semibold uppercase text-slate-300">{t('settings.ratingLabels')}</h3>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{ratingInputs}</div>
             </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase text-slate-300">{t('settings.importMatch')}</h3>
+              <ImportMatchSection api={api} />
+            </section>
           </div>
         </DialogContent>
       </DialogPortal>
@@ -115,5 +122,68 @@ function getDefaultLabels(language: Language): Record<RatingLabelKey, string> {
 function hasAllLabels(labels?: Record<RatingLabelKey, string>) {
   if (!labels) return false
   return RATING_KEYS.every((key) => typeof labels[key] === 'string' && labels[key] !== undefined)
+}
+
+interface ImportMatchSectionProps {
+  api: BackgroundApi | undefined
+}
+
+function ImportMatchSection({ api }: ImportMatchSectionProps) {
+  const { t } = useI18n()
+  const [jsonText, setJsonText] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const handleImport = async () => {
+    if (!api || !jsonText.trim()) {
+      setError(t('settings.importMatch.error.empty'))
+      return
+    }
+
+    setIsImporting(true)
+    setError(null)
+    setSuccess(false)
+
+    try {
+      const matchData: GlobalMatchData = JSON.parse(jsonText)
+      
+      // 验证必要字段
+      if (!matchData.match_info?.pseudo_match_id) {
+        throw new Error(t('settings.importMatch.error.invalid'))
+      }
+
+      await api.settings.importMatch(matchData)
+      setSuccess(true)
+      setJsonText('')
+      
+      // 3秒后清除成功消息
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('settings.importMatch.error.parse'))
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <textarea
+        value={jsonText}
+        onChange={(e) => {
+          setJsonText(e.target.value)
+          setError(null)
+          setSuccess(false)
+        }}
+        placeholder={t('settings.importMatch.placeholder')}
+        className="min-h-[200px] w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+      />
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      {success && <div className="text-sm text-green-400">{t('settings.importMatch.success')}</div>}
+      <Button onClick={handleImport} disabled={isImporting || !jsonText.trim()}>
+        {isImporting ? t('settings.importMatch.importing') : t('settings.importMatch.import')}
+      </Button>
+    </div>
+  )
 }
 

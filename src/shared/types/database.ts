@@ -1,4 +1,26 @@
-import type { Dota2Player, Dota2TeamKey, GameModeInfo, TeamScore } from './dota2'
+import type {
+  Dota2Player,
+  Dota2TeamKey,
+  GameModeInfo,
+  TeamScore,
+  Dota2GameState,
+  Dota2MatchState,
+  Dota2PlayerRole,
+} from './dota2'
+
+export interface HeroStat {
+  hero: string
+  totalGames: number
+  wins: number
+}
+
+export interface MatchStat {
+  matchId: string
+  team: Dota2TeamKey
+  role?: number | Dota2PlayerRole
+  isWin: boolean
+  timestamp: number
+}
 
 export interface MatchRecord {
   uuid: string
@@ -9,6 +31,9 @@ export interface MatchRecord {
   gameMode?: GameModeInfo
   winner?: Dota2TeamKey | undefined
   teamScore?: TeamScore
+  gameState?: Dota2GameState
+  matchState?: Dota2MatchState
+  me?: { steam_id?: string; team?: Dota2TeamKey }
   players?: Dota2Player[]
 }
 
@@ -19,8 +44,8 @@ export interface PlayerRecord {
   playerId: string
   name?: string
   nameList: string[]
-  heroList: string[]
-  matchList: string[]
+  heroList: HeroStat[]
+  matchList: MatchStat[]
 }
 
 export interface CommentRecord {

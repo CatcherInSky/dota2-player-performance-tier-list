@@ -43,6 +43,9 @@ export class MatchesRepository {
       gameMode: state.match_info.game_mode,
       winner: state.game.winner ?? undefined,
       teamScore: state.match_info.team_score,
+      gameState: state.game.game_state,
+      matchState: state.game.match_state,
+      me: state.me.steam_id || state.me.team ? { steam_id: state.me.steam_id, team: state.me.team } : undefined,
       players: rosterPlayers,
     }
 
@@ -61,6 +64,9 @@ export class MatchesRepository {
     record.updatedAt = Date.now()
     record.winner = state.game.winner ?? record.winner
     record.teamScore = state.match_info.team_score
+    record.gameState = state.game.game_state ?? record.gameState
+    record.matchState = state.game.match_state ?? record.matchState
+    record.me = state.me.steam_id || state.me.team ? { steam_id: state.me.steam_id, team: state.me.team } : record.me
     record.players = this.filterPlayers(state.roster.players)
     await db.matches.put(record)
     this.logger.info('Finalized match record', record.matchId)
@@ -89,6 +95,7 @@ export class MatchesRepository {
       winner,
       startTime,
       endTime,
+      gameState,
     } = filters
     const offset = (page - 1) * pageSize
 
@@ -97,9 +104,11 @@ export class MatchesRepository {
       : db.matches.orderBy('updatedAt').reverse()
 
     collection = collection.filter((match) => {
-      if (gameMode && match.gameMode?.game_mode !== gameMode) return false
+      if (matchId && match.matchId !== matchId) return false
+      if (gameMode && match.gameMode?.game_mode !== gameMode && match.gameMode?.lobby_type !== gameMode) return false
       if (startTime && match.updatedAt < startTime) return false
       if (endTime && match.updatedAt > endTime) return false
+      if (gameState && match.gameState !== gameState) return false
       if (winner) {
         if (winner === 'unknown') {
           if (match.winner != null) return false

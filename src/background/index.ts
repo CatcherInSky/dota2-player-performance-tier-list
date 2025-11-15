@@ -2,6 +2,7 @@ import { db } from './db.ts'
 import type { CommentFilters, MatchFilters, PlayerFilters } from '../shared/types/api'
 import type { ExportedDatabase, MatchRecord, SettingsRecord } from '../shared/types/database'
 import type { BackgroundApi, BackgroundApiEvents } from '../shared/types/api'
+import type { GlobalMatchData } from '../shared/types/dota2'
 import { backgroundEventBus } from './event-bus'
 import { MatchesRepository } from './repositories/matches.ts'
 import { PlayersRepository } from './repositories/players.ts'
@@ -91,6 +92,22 @@ export class BackgroundApp {
         import: async (payload: ExportedDatabase) => {
           await db.import(payload)
           this.logger.info('Database imported', payload)
+        },
+        importMatch: async (matchData: GlobalMatchData) => {
+          // 创建或更新比赛记录
+          const match = await this.matchesRepository.finalizeFromState(matchData)
+          
+          // 同步玩家数据（syncFromMatch会遍历所有玩家）
+          await this.playersRepository.syncFromMatch(matchData)
+          
+          // 创建评论占位符
+          if (matchData.roster.players) {
+            await this.commentsRepository.ensurePlaceholders(match.matchId, matchData.roster.players)
+          }
+          
+          this.logger.info('Match imported', match.matchId)
+          backgroundEventBus.emit('match:end', undefined)
+          return match
         },
         clear: async () => {
           await db.clearAll()

@@ -2,8 +2,8 @@ import Dexie from 'dexie'
 import { db } from '../db'
 import type { PlayerFilters } from '../../shared/types/api'
 import type { PlayerWithStats } from '../../shared/types/api'
-import type { PlayerRecord } from '../../shared/types/database'
-import type { GlobalMatchData } from '../../shared/types/dota2'
+import type { PlayerRecord, HeroStat, MatchStat } from '../../shared/types/database'
+import type { GlobalMatchData, Dota2TeamKey } from '../../shared/types/dota2'
 import { generateId } from '../../shared/utils/id'
 import { paginate, DEFAULT_PAGE_SIZE } from './pagination'
 import { filterRosterPlayers } from '../../shared/utils/roster'
@@ -14,23 +14,63 @@ export class PlayersRepository {
     if (!players.length) return
 
     const matchId = state.match_info.pseudo_match_id
+    const matchWinner = state.game.winner
     const timestamp = Date.now()
 
     const executor = async () => {
       for (const player of players) {
         if (!player.steamId) continue
         const existing = await db.players.where('playerId').equals(player.steamId).first()
-        const matchList = existing?.matchList ?? []
-        if (matchId && !matchList.includes(matchId)) {
-          matchList.push(matchId)
-        }
+
+        // 更新name和nameList
         const nameList = existing?.nameList ?? []
         if (player.name && !nameList.includes(player.name)) {
           nameList.push(player.name)
         }
-        const heroList = existing?.heroList ?? []
-        if (player.hero && !heroList.includes(player.hero)) {
-          heroList.push(player.hero)
+
+        // 更新heroList统计
+        const heroList: HeroStat[] = existing?.heroList ?? []
+        if (player.hero) {
+          const heroIndex = heroList.findIndex((h) => h.hero === player.hero)
+          const isWin = matchWinner && player.team && matchWinner === player.team
+
+          if (heroIndex >= 0) {
+            // 更新现有英雄统计
+            heroList[heroIndex].totalGames += 1
+            if (isWin) {
+              heroList[heroIndex].wins += 1
+            }
+          } else {
+            // 添加新英雄统计
+            heroList.push({
+              hero: player.hero,
+              totalGames: 1,
+              wins: isWin ? 1 : 0,
+            })
+          }
+        }
+
+        // 更新matchList统计
+        const matchList: MatchStat[] = existing?.matchList ?? []
+        if (matchId) {
+          const matchIndex = matchList.findIndex((m) => m.matchId === matchId)
+          const isWin = !!(matchWinner && player.team && matchWinner === player.team)
+
+          const matchStat: MatchStat = {
+            matchId,
+            team: (player.team as Dota2TeamKey) || 'none',
+            role: player.role,
+            isWin,
+            timestamp,
+          }
+
+          if (matchIndex >= 0) {
+            // 更新现有比赛统计
+            matchList[matchIndex] = matchStat
+          } else {
+            // 添加新比赛统计
+            matchList.push(matchStat)
+          }
         }
 
         const record: PlayerRecord = {
@@ -65,7 +105,7 @@ export class PlayersRepository {
   }
 
   async query(filters: PlayerFilters = {}) {
-    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, keyword, matchId, startTime, endTime } = filters
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, keyword, matchId, startTime, endTime, hero } = filters
     const collection = db.players.orderBy('updatedAt')
     const all = await collection.reverse().toArray()
 
@@ -76,30 +116,82 @@ export class PlayersRepository {
             const haystack = [player.name, player.playerId, ...player.nameList].join(' ').toLowerCase()
             if (!haystack.includes(keyword.toLowerCase())) return false
           }
-          if (matchId && !player.matchList.includes(matchId)) return false
+          if (matchId && !player.matchList.some((m) => m.matchId === matchId)) return false
+          if (hero && !player.heroList.some((h) => h.hero.toLowerCase().includes(hero.toLowerCase()))) return false
           return true
         })
         .map(async (player) => {
           const comments = await db.comments.where('playerId').equals(player.playerId).toArray()
           const scores = comments.map((comment) => comment.score)
           const averageScore = scores.length ? scores.reduce((acc, curr) => acc + curr, 0) / scores.length : null
-          const matchRecords = player.matchList.length
-            ? await db.matches.where('matchId').anyOf(player.matchList).toArray()
-            : []
-          const timestamps = matchRecords.map((match) => match.updatedAt).sort((a, b) => a - b)
 
+          // 从matchList获取时间戳
+          const timestamps = (player.matchList || []).map((m) => {
+            if (typeof m === 'string') return Date.now() // 旧格式，使用当前时间作为占位符
+            return m.timestamp
+          }).sort((a, b) => a - b)
           const firstEncounter = timestamps[0]
           const lastEncounter = timestamps[timestamps.length - 1]
 
           if (startTime && (!lastEncounter || lastEncounter < startTime)) return null
           if (endTime && (!firstEncounter || firstEncounter > endTime)) return null
 
+          // 计算队友/对手统计
+          let teammateGames = 0
+          let teammateWins = 0
+          let opponentGames = 0
+          let opponentWins = 0
+
+          if (player.matchList && player.matchList.length > 0) {
+            // 提取有效的matchIds
+            const matchIds: string[] = []
+            for (const item of player.matchList) {
+              if (typeof item === 'string') {
+                if (item) matchIds.push(item)
+              } else if (item && typeof item === 'object' && 'matchId' in item) {
+                const matchId = item.matchId
+                if (matchId && typeof matchId === 'string') {
+                  matchIds.push(matchId)
+                }
+              }
+            }
+
+            if (matchIds.length > 0) {
+              const matches = await db.matches.where('matchId').anyOf(matchIds).toArray()
+              
+              for (const matchStat of player.matchList) {
+                if (typeof matchStat === 'string') continue // 跳过旧格式
+                if (!matchStat || typeof matchStat !== 'object' || !('matchId' in matchStat)) continue
+                
+                const match = matches.find((m) => m.matchId === matchStat.matchId)
+                if (!match || !match.me?.team) continue
+
+                if (matchStat.team === match.me.team) {
+                  teammateGames++
+                  if (matchStat.isWin) teammateWins++
+                } else {
+                  opponentGames++
+                  if (matchStat.isWin) opponentWins++
+                }
+              }
+            }
+          }
+
+          const teammateWinRate = teammateGames > 0 ? (teammateWins / teammateGames) * 100 : null
+          const opponentWinRate = opponentGames > 0 ? (opponentWins / opponentGames) * 100 : null
+
           const enriched: PlayerWithStats = {
             ...player,
-            encounterCount: player.matchList.length,
+            encounterCount: player.matchList?.length || 0,
             averageScore,
             firstEncounter,
             lastEncounter,
+            teammateGames,
+            teammateWins,
+            teammateWinRate,
+            opponentGames,
+            opponentWins,
+            opponentWinRate,
           }
           return enriched
         }),
@@ -113,31 +205,73 @@ export class PlayersRepository {
   }
 
   async getHistory(playerId: string) {
-    const [player, comments] = await Promise.all([
-      db.players.where('playerId').equals(playerId).first(),
-      db.comments.where('playerId').equals(playerId).toArray(),
-    ])
+    try {
+      console.log('[PlayersRepository.getHistory] Querying player:', playerId)
+      const player = await db.players.where('playerId').equals(playerId).first()
+      
+      if (!player) {
+        console.warn('[PlayersRepository.getHistory] Player not found:', playerId)
+        // 检查数据库中是否有任何玩家
+        const allPlayers = await db.players.limit(5).toArray()
+        console.log('[PlayersRepository.getHistory] Sample players in DB:', allPlayers.map((p) => p.playerId))
+        return { player: null, comments: [], matches: [] }
+      }
 
-    if (!player) {
-      return { player: null, comments, matches: [] }
+      console.log('[PlayersRepository.getHistory] Player found:', {
+        playerId: player.playerId,
+        name: player.name,
+        matchListLength: player.matchList?.length || 0,
+        matchListType: Array.isArray(player.matchList) ? (player.matchList.length > 0 ? typeof player.matchList[0] : 'empty') : 'not-array',
+      })
+
+      // 安全地提取 matchIds，处理旧数据格式（可能是 string[] 或 MatchStat[]）
+      const matchIds: string[] = []
+      if (Array.isArray(player.matchList)) {
+        for (const item of player.matchList) {
+          if (typeof item === 'string') {
+            // 旧格式：string[]
+            if (item) matchIds.push(item)
+          } else if (item && typeof item === 'object' && 'matchId' in item) {
+            // 新格式：MatchStat[]
+            const matchId = item.matchId
+            if (matchId && typeof matchId === 'string') {
+              matchIds.push(matchId)
+            }
+          }
+        }
+      }
+
+      const comments = await db.comments.where('playerId').equals(playerId).toArray()
+
+      console.log('[PlayersRepository.getHistory] Found comments:', comments.length, 'valid matchIds:', matchIds.length, 'matchIds:', matchIds)
+
+      const matchRecords = matchIds.length > 0
+        ? await db.matches.where('matchId').anyOf(matchIds).toArray()
+        : []
+      
+      const timestamps = (player.matchList || []).map((m) => m.timestamp).sort((a, b) => a - b)
+      const scores = comments.map((comment) => comment.score)
+      const averageScore = scores.length ? scores.reduce((acc, curr) => acc + curr, 0) / scores.length : null
+
+      const detailed: PlayerWithStats = {
+        ...player,
+        encounterCount: player.matchList?.length || 0,
+        firstEncounter: timestamps[0],
+        lastEncounter: timestamps[timestamps.length - 1],
+        averageScore,
+      }
+
+      console.log('[PlayersRepository.getHistory] Returning data:', {
+        player: !!detailed,
+        comments: comments.length,
+        matches: matchRecords.length,
+      })
+
+      return { player: detailed, comments, matches: matchRecords }
+    } catch (error) {
+      console.error('[PlayersRepository.getHistory] Error:', error)
+      throw error
     }
-
-    const matchRecords = player.matchList.length
-      ? await db.matches.where('matchId').anyOf(player.matchList).toArray()
-      : []
-    const timestamps = matchRecords.map((match) => match.updatedAt).sort((a, b) => a - b)
-    const scores = comments.map((comment) => comment.score)
-    const averageScore = scores.length ? scores.reduce((acc, curr) => acc + curr, 0) / scores.length : null
-
-    const detailed: PlayerWithStats = {
-      ...player,
-      encounterCount: player.matchList.length,
-      firstEncounter: timestamps[0],
-      lastEncounter: timestamps[timestamps.length - 1],
-      averageScore,
-    }
-
-    return { player: detailed, comments, matches: matchRecords }
   }
 }
 

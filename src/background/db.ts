@@ -42,8 +42,8 @@ export class DotaDexie extends Dexie {
   constructor() {
     super('dota2-player-performance')
 
-    this.version(20).stores({
-      matches: 'uuid, matchId, playerId, updatedAt, gameMode, winner',
+    this.version(21).stores({
+      matches: 'uuid, matchId, playerId, updatedAt, gameMode, winner, gameState',
       players: 'uuid, playerId, updatedAt',
       comments: 'uuid, playerId, matchId, updatedAt, [matchId+playerId]',
       settings: 'id',
