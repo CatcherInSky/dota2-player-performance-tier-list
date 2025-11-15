@@ -1,6 +1,6 @@
-import type { BackgroundApi, CommentWithPlayer } from '../types/api'
-import type { MatchRecord } from '../types/database'
-import type { Dota2Player, Dota2TeamKey, GlobalMatchData } from '../types/dota2'
+import type { BackgroundApi, CommentWithPlayer } from './api'
+import type { MatchRecord } from './database'
+import type { Dota2Player, Dota2TeamKey, GlobalMatchData } from './dota2'
 import { buildPlayerHistoryStats, normalizeTeam, type PlayerHistoryStats } from '../utils/playerStats'
 import { filterRosterPlayers } from '../utils/roster'
 

@@ -18,11 +18,12 @@ export interface MatchFilters extends PaginationRequest {
   endTime?: number
   gameMode?: string
   winner?: Dota2TeamKey | 'unknown'
+  dateRange?: { start?: Date; end?: Date }
 }
 
 export interface PlayerFilters extends PaginationRequest {
   keyword?: string
-  hero?: string
+  matchId?: string
   startTime?: number
   endTime?: number
 }
@@ -33,6 +34,8 @@ export interface CommentFilters extends PaginationRequest {
   score?: number
   startTime?: number
   endTime?: number
+  comment?: string
+  dateRange?: { start?: Date; end?: Date }
 }
 
 export interface PaginatedResult<T> {

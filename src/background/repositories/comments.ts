@@ -96,6 +96,7 @@ export class CommentsRepository {
       if (typeof score === 'number' && comment.score !== score) return false
       if (startTime && comment.updatedAt < startTime) return false
       if (endTime && comment.updatedAt > endTime) return false
+      if (filters.comment && !comment.comment.toLowerCase().includes(filters.comment.toLowerCase())) return false
       return true
     })
 

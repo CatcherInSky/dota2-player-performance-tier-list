@@ -65,7 +65,7 @@ export class PlayersRepository {
   }
 
   async query(filters: PlayerFilters = {}) {
-    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, keyword, hero, startTime, endTime } = filters
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, keyword, matchId, startTime, endTime } = filters
     const collection = db.players.orderBy('updatedAt')
     const all = await collection.reverse().toArray()
 
@@ -73,10 +73,10 @@ export class PlayersRepository {
       all
         .filter((player) => {
           if (keyword) {
-            const haystack = [player.name, ...player.nameList].join(' ').toLowerCase()
+            const haystack = [player.name, player.playerId, ...player.nameList].join(' ').toLowerCase()
             if (!haystack.includes(keyword.toLowerCase())) return false
           }
-          if (hero && !player.heroList.some((h) => h.toLowerCase().includes(hero.toLowerCase()))) return false
+          if (matchId && !player.matchList.includes(matchId)) return false
           return true
         })
         .map(async (player) => {

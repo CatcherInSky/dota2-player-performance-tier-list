@@ -16,7 +16,10 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void
   pagination?: PaginatedResult<T>
   onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
 }
+
+const PAGE_SIZES = [10, 20, 50, 100]
 
 export function DataTable<T>({
   columns,
@@ -25,8 +28,12 @@ export function DataTable<T>({
   onRowClick,
   pagination,
   onPageChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const { t } = useI18n()
+  const pageSizeOptions = pagination
+    ? Array.from(new Set([...PAGE_SIZES, pagination.pageSize])).sort((a, b) => a - b)
+    : PAGE_SIZES
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-800/60 shadow">
@@ -68,16 +75,34 @@ export function DataTable<T>({
         </tbody>
       </table>
       {pagination && onPageChange && (
-        <div className="flex items-center justify-between border-t border-slate-700 bg-slate-900/60 px-4 py-2 text-sm">
-          <div>
-            {pagination.total === 0
-              ? ''
-              : `${(pagination.page - 1) * pagination.pageSize + 1}-${Math.min(
-                  pagination.page * pagination.pageSize,
-                  pagination.total,
-                )} / ${pagination.total}`}
+        <div className="flex flex-col gap-2 border-t border-slate-700 bg-slate-900/60 px-4 py-2 text-sm md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <span>
+              {pagination.total === 0
+                ? ''
+                : `${(pagination.page - 1) * pagination.pageSize + 1}-${Math.min(
+                    pagination.page * pagination.pageSize,
+                    pagination.total,
+                  )} / ${pagination.total}`}
+            </span>
+            {onPageSizeChange && (
+              <label className="flex items-center gap-2">
+                <span className="text-slate-300">{t('home.pageSize', '每页')}</span>
+                <select
+                  className="rounded border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
+                  value={pagination.pageSize}
+                  onChange={(event) => onPageSizeChange(Number(event.target.value))}
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               className="btn"
               disabled={pagination.page <= 1}

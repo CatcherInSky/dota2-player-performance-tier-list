@@ -1,5 +1,5 @@
 import { Dota2Team } from '../types/dota2'
-import type { PlayerViewModel } from '../ingame/players'
+import type { PlayerViewModel } from '../types/players'
 
 const ROLE_PRIORITY = [1, 4, 2, 8, 16] as const
 const ROLE_FALLBACK_WEIGHT = ROLE_PRIORITY.length + 1

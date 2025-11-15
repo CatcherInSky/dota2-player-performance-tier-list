@@ -40,6 +40,14 @@ export enum Dota2GameMode {
   CAPTAINS_DRAFT = 'CaptainsDraft',
 }
 
+export enum Dota2PlayerRole {
+  CARRY = 1,
+  OFFLANER = 2,
+  MIDLANER = 4,
+  SUPPORT = 8,
+  HARD_SUPPORT = 16,
+}
+
 export interface Dota2EventPayload {
   events: Array<{
     name: string
@@ -120,7 +128,7 @@ export interface Dota2Player {
   name?: string
   hero?: string
   team?: number | Dota2TeamKey
-  role?: number
+  role?: number | Dota2PlayerRole // 位标志: 1=Carry, 2=Offlaner, 4=Midlaner, 8=Support, 16=Hard Support
   team_slot?: number
   player_index?: number
 }

@@ -13,9 +13,12 @@ import type {
   PlayerWithStats,
 } from '../../shared/types/api'
 import type { MatchRecord } from '../../shared/types/database'
+import { DatePicker } from '../../shared/ui/date-picker'
+import { Input } from '../../shared/ui/input'
+import { SelectContent, SelectItem, SelectRoot, SelectTrigger } from '../../shared/ui/select'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../shared/ui/tabs'
 import { DataTable } from '../components/DataTable'
-import { FilterCard, InputField } from '../components/FilterCard'
+import { FilterCard } from '../components/FilterCard'
 import { formatMatchResult } from '../utils/match'
 
 type HomeTab = 'matches' | 'players' | 'comments'
@@ -146,6 +149,7 @@ function MatchesTable({ filters, matches, onFiltersChange, onSelect }: MatchesTa
         onRowClick={onSelect}
         pagination={matches}
         onPageChange={(page: number) => onFiltersChange({ ...filters, page })}
+        onPageSizeChange={(pageSize: number) => onFiltersChange({ ...filters, page: 1, pageSize })}
       />
     </div>
   )
@@ -193,6 +197,7 @@ function PlayersTable({ filters, players, onFiltersChange, onSelect }: PlayersTa
         onRowClick={onSelect}
         pagination={players}
         onPageChange={(page: number) => onFiltersChange({ ...filters, page })}
+        onPageSizeChange={(pageSize: number) => onFiltersChange({ ...filters, page: 1, pageSize })}
       />
     </div>
   )
@@ -226,6 +231,7 @@ function CommentsTable({ filters, comments, onFiltersChange }: CommentsTableProp
         emptyText={t('home.noData')}
         pagination={comments}
         onPageChange={(page: number) => onFiltersChange({ ...filters, page })}
+        onPageSizeChange={(pageSize: number) => onFiltersChange({ ...filters, page: 1, pageSize })}
       />
     </div>
   )
@@ -238,38 +244,55 @@ interface MatchFiltersFormProps {
 
 function MatchFiltersForm({ filters, onChange }: MatchFiltersFormProps) {
   const { t } = useI18n()
-  const [local, setLocal] = useState(filters)
+  const [local, setLocal] = useState<MatchFilters & { dateRange?: { start?: Date; end?: Date } }>(filters)
 
   useEffect(() => {
     setLocal(filters)
   }, [filters])
 
-  const apply = () => onChange({ ...local, page: 1 })
+  const apply = () => {
+    // Convert date range to timestamps (start of day for start, end of day for end)
+    let startTime = local.startTime
+    let endTime = local.endTime
+
+    if (local.dateRange?.start) {
+      const start = new Date(local.dateRange.start)
+      start.setHours(0, 0, 0, 0)
+      startTime = start.getTime()
+    }
+
+    if (local.dateRange?.end) {
+      const end = new Date(local.dateRange.end)
+      end.setHours(23, 59, 59, 999)
+      endTime = end.getTime()
+    }
+
+    onChange({ ...local, startTime, endTime, page: 1 })
+  }
+
   const reset = () => onChange({ page: 1, pageSize: filters.pageSize })
 
   return (
     <FilterCard
       inputs={
         <>
-          <InputField label={t('matches.matchId')} value={local.matchId ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, matchId: value }))} />
-          <InputField label={t('matches.filters.mode')} value={local.gameMode ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, gameMode: value }))} />
-          <InputField
-            label={t('matches.filters.result')}
-            value={local.winner ?? ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, winner: value ? (value as MatchFilters['winner']) : undefined }))}
-            placeholder="radiant / dire / none / unknown"
-          />
-          <InputField
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('matches.matchId')}</label>
+            <Input
+              value={local.matchId ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, matchId: e.target.value }))}
+              placeholder={t('matches.matchId')}
+            />
+          </div>
+          <DatePicker
             label={t('matches.filters.time')}
-            type="datetime-local"
-            value={local.startTime ? new Date(local.startTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, startTime: value ? new Date(value).getTime() : undefined }))}
-          />
-          <InputField
-            label=""
-            type="datetime-local"
-            value={local.endTime ? new Date(local.endTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, endTime: value ? new Date(value).getTime() : undefined }))}
+            mode="range"
+            value={{
+              start: local.dateRange?.start,
+              end: local.dateRange?.end,
+            }}
+            onChange={(dateRange) => setLocal((prev) => ({ ...prev, dateRange }))}
+            placeholder={{ start: 'mm/dd/yyyy', end: 'mm/dd/yyyy' }}
           />
         </>
       }
@@ -286,7 +309,7 @@ interface PlayerFiltersFormProps {
 
 function PlayerFiltersForm({ filters, onChange }: PlayerFiltersFormProps) {
   const { t } = useI18n()
-  const [local, setLocal] = useState(filters)
+  const [local, setLocal] = useState<PlayerFilters & { matchId?: string }>(filters)
 
   useEffect(() => {
     setLocal(filters)
@@ -299,20 +322,22 @@ function PlayerFiltersForm({ filters, onChange }: PlayerFiltersFormProps) {
     <FilterCard
       inputs={
         <>
-          <InputField label={t('players.filters.keyword')} value={local.keyword ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, keyword: value }))} />
-          <InputField label={t('players.filters.hero')} value={local.hero ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, hero: value }))} />
-          <InputField
-            label={t('players.filters.time')}
-            type="datetime-local"
-            value={local.startTime ? new Date(local.startTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, startTime: value ? new Date(value).getTime() : undefined }))}
-          />
-          <InputField
-            label=""
-            type="datetime-local"
-            value={local.endTime ? new Date(local.endTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, endTime: value ? new Date(value).getTime() : undefined }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('players.filters.keyword')}</label>
+            <Input
+              value={local.keyword ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, keyword: e.target.value }))}
+              placeholder={t('players.filters.keyword')}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('matches.matchId')}</label>
+            <Input
+              value={local.matchId ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, matchId: e.target.value }))}
+              placeholder={t('matches.matchId')}
+            />
+          </div>
         </>
       }
       onApply={apply}
@@ -328,38 +353,90 @@ interface CommentFiltersFormProps {
 
 function CommentFiltersForm({ filters, onChange }: CommentFiltersFormProps) {
   const { t } = useI18n()
-  const [local, setLocal] = useState(filters)
+  const [local, setLocal] = useState<CommentFilters & { dateRange?: { start?: Date; end?: Date }; comment?: string }>(filters)
 
   useEffect(() => {
     setLocal(filters)
   }, [filters])
 
-  const apply = () => onChange({ ...local, page: 1 })
+  const apply = () => {
+    // Convert date range to timestamps (start of day for start, end of day for end)
+    let startTime = local.startTime
+    let endTime = local.endTime
+
+    if (local.dateRange?.start) {
+      const start = new Date(local.dateRange.start)
+      start.setHours(0, 0, 0, 0)
+      startTime = start.getTime()
+    }
+
+    if (local.dateRange?.end) {
+      const end = new Date(local.dateRange.end)
+      end.setHours(23, 59, 59, 999)
+      endTime = end.getTime()
+    }
+
+    onChange({ ...local, startTime, endTime, page: 1 })
+  }
+
   const reset = () => onChange({ page: 1, pageSize: filters.pageSize })
 
   return (
     <FilterCard
       inputs={
         <>
-          <InputField label={t('comments.filters.player')} value={local.playerId ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, playerId: value }))} />
-          <InputField label={t('comments.filters.match')} value={local.matchId ?? ''} onChange={(value) => setLocal((prev) => ({ ...prev, matchId: value }))} />
-          <InputField
-            label={t('comments.filters.score')}
-            value={local.score?.toString() ?? ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, score: value ? Number(value) : undefined }))}
-          />
-          <InputField
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('comments.filters.player')}</label>
+            <Input
+              value={local.playerId ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, playerId: e.target.value }))}
+              placeholder={t('comments.filters.player')}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('comments.filters.match')}</label>
+            <Input
+              value={local.matchId ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, matchId: e.target.value }))}
+              placeholder={t('comments.filters.match')}
+            />
+          </div>
+          <DatePicker
             label={t('comments.filters.time')}
-            type="datetime-local"
-            value={local.startTime ? new Date(local.startTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, startTime: value ? new Date(value).getTime() : undefined }))}
+            mode="range"
+            value={{
+              start: local.dateRange?.start,
+              end: local.dateRange?.end,
+            }}
+            onChange={(dateRange) => setLocal((prev) => ({ ...prev, dateRange }))}
+            placeholder={{ start: 'mm/dd/yyyy', end: 'mm/dd/yyyy' }}
           />
-          <InputField
-            label=""
-            type="datetime-local"
-            value={local.endTime ? new Date(local.endTime).toISOString().slice(0, 16) : ''}
-            onChange={(value) => setLocal((prev) => ({ ...prev, endTime: value ? new Date(value).getTime() : undefined }))}
-          />
+          <SelectRoot
+            value={local.score?.toString() ?? ''}
+            onValueChange={(value) => setLocal((prev) => ({ ...prev, score: value ? Number(value) : undefined }))}
+          >
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase text-slate-400">{t('comments.filters.score')}</label>
+              <SelectTrigger>
+                {local.score ? `${local.score}星` : '选择评分'}
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5].map((score) => (
+                  <SelectItem key={score} value={score.toString()}>
+                    {score}星
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </div>
+          </SelectRoot>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase text-slate-400">{t('comments.comment')}</label>
+            <Input
+              value={local.comment ?? ''}
+              onChange={(e) => setLocal((prev) => ({ ...prev, comment: e.target.value }))}
+              placeholder={t('comments.comment')}
+            />
+          </div>
         </>
       }
       onApply={apply}
