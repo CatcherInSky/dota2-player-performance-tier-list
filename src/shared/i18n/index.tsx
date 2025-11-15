@@ -249,6 +249,10 @@ export const DEFAULT_RATING_LABELS: SettingsRecord['ratingLabels'] = {
   },
 }
 
+/**
+ * I18nProvider - 国际化上下文提供者
+ * 管理应用的语言设置、翻译函数和评分标签
+ */
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const backgroundApi = useBackgroundApi()
   const [language, setLanguageState] = useState<Language>('zh-CN')
@@ -314,6 +318,11 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
+/**
+ * 获取国际化上下文的React Hook
+ * @returns 包含language、setLanguage、t、settings、ratingLabels等的对象
+ * @throws 如果不在I18nProvider内使用会抛出错误
+ */
 export function useI18n() {
   const context = useContext(I18nContext)
   if (!context) {

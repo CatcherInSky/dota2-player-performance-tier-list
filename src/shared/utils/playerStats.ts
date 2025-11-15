@@ -9,6 +9,11 @@ export interface PlayerHistoryStats {
   comments: CommentRecord[]
 }
 
+/**
+ * 标准化队伍标识
+ * 将数字类型的队伍ID（Dota2TeamId）转换为字符串类型的队伍key（Dota2TeamKey）
+ * @returns 标准化后的队伍key，如果无效则返回null
+ */
 export function normalizeTeam(team: number | Dota2TeamKey | undefined | null): Dota2TeamKey | null {
   if (team == null) return null
   if (typeof team === 'string') {
@@ -25,6 +30,11 @@ export function getPlayerTeam(match: MatchRecord, playerId: string): Dota2TeamKe
   return normalizeTeam(rosterPlayer?.team)
 }
 
+/**
+ * 计算玩家的胜率
+ * 遍历所有比赛记录，统计该玩家所在队伍的胜利场数和总场数
+ * @returns 包含wins、totalMatches、winRate的对象
+ */
 export function calculateWinRate(matches: MatchRecord[], playerId: string): {
   wins: number
   totalMatches: number
@@ -56,6 +66,10 @@ export function calculateWinRate(matches: MatchRecord[], playerId: string): {
   }
 }
 
+/**
+ * 计算平均评分
+ * @returns 平均分（1-5），如果没有评价则返回null
+ */
 export function calculateAverageScore(comments: CommentRecord[]): number | null {
   if (!comments?.length) return null
   const scores = comments.map((comment) => comment.score).filter((score): score is number => typeof score === 'number')
@@ -64,6 +78,11 @@ export function calculateAverageScore(comments: CommentRecord[]): number | null 
   return total / scores.length
 }
 
+/**
+ * 构建玩家历史统计数据
+ * 整合比赛记录和评价记录，计算胜率、平均分等统计数据
+ * @returns 包含wins、totalMatches、winRate、averageScore、comments的对象
+ */
 export function buildPlayerHistoryStats(
   matches: MatchRecord[] | undefined,
   comments: CommentRecord[] | undefined,
@@ -82,6 +101,11 @@ export function buildPlayerHistoryStats(
   }
 }
 
+/**
+ * 合并评价文本
+ * 将所有评价记录的comment字段合并为一个字符串，用分隔符连接
+ * @returns 包含合并后的文本和是否有内容的标志
+ */
 export function joinComments(
   comments: CommentRecord[] | undefined,
   separator = ' / ',

@@ -11,6 +11,10 @@ interface MatchDetailPageProps {
   api: BackgroundApi | undefined
 }
 
+/**
+ * MatchDetailPage - 比赛详情页组件
+ * 显示比赛的完整信息：基础信息、玩家列表（按队伍分组）、评价信息
+ */
 export function MatchDetailPage({ api }: MatchDetailPageProps) {
   const { matchId = '' } = useParams()
   const { t } = useI18n()

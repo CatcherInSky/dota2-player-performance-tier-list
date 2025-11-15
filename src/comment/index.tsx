@@ -10,6 +10,11 @@ import { getHeroImage } from '../shared/utils/heroes'
 import { sortPlayersForOverlay } from '../shared/utils/playerOrder'
 import '../shared/styles/global.css'
 
+/**
+ * CommentApp - 评价编辑窗口应用
+ * 显示当前比赛的玩家列表，支持为每个玩家评分和添加评价
+ * 在比赛结束时自动显示，用于快速评价所有玩家
+ */
 function CommentApp() {
   const api = useBackgroundApi()
   const { t, ratingLabels } = useI18n()

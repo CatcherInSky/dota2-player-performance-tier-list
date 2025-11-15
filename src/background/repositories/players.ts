@@ -8,7 +8,19 @@ import { generateId } from '../../shared/utils/id'
 import { paginate, DEFAULT_PAGE_SIZE } from './pagination'
 import { filterRosterPlayers } from '../../shared/utils/roster'
 
+/**
+ * PlayersRepository - 玩家数据仓库
+ * 负责玩家记录的同步、更新、查询等数据库操作
+ */
 export class PlayersRepository {
+  /**
+   * 从比赛数据同步玩家信息
+   * 对于每个玩家：
+   * - 更新name和nameList（如果名称不在列表中则添加）
+   * - 更新heroList统计（总场数、胜利场数）
+   * - 更新matchList统计（比赛ID、队伍、位置、是否胜利、时间戳）
+   * @param state - 全局比赛数据
+   */
   async syncFromMatch(state: GlobalMatchData): Promise<void> {
     const players = filterRosterPlayers(state.roster.players)
     if (!players.length) return
@@ -104,6 +116,13 @@ export class PlayersRepository {
     return db.players.where('playerId').equals(playerId).first()
   }
 
+  /**
+   * 查询玩家记录（支持分页和筛选）
+   * 支持的筛选条件：keyword（名称/ID模糊匹配）, matchId, hero, startTime, endTime
+   * 会计算并返回：encounterCount, averageScore, teammateGames, opponentGames等统计数据
+   * @param filters - 筛选条件（包含分页参数）
+   * @returns 分页结果（包含丰富的统计信息）
+   */
   async query(filters: PlayerFilters = {}) {
     const { page = 1, pageSize = DEFAULT_PAGE_SIZE, keyword, matchId, startTime, endTime, hero } = filters
     const collection = db.players.orderBy('updatedAt')
@@ -204,6 +223,12 @@ export class PlayersRepository {
     )
   }
 
+  /**
+   * 获取玩家的完整历史记录
+   * 包括：玩家基本信息、所有评价记录、所有遭遇的比赛记录
+   * @param playerId - 玩家Steam ID
+   * @returns 包含player、comments、matches的对象
+   */
   async getHistory(playerId: string) {
     try {
       console.log('[PlayersRepository.getHistory] Querying player:', playerId)

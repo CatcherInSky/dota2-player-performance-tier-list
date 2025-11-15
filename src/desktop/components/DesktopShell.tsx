@@ -8,6 +8,10 @@ import { MatchDetailPage } from '../pages/MatchDetailPage'
 import { PlayerDetailPage } from '../pages/PlayerDetailPage'
 import { SettingsDialog } from './SettingsDialog'
 
+/**
+ * DesktopShell - 桌面应用主外壳组件
+ * 提供导航栏、路由管理和设置对话框
+ */
 export function DesktopShell() {
   const api = useBackgroundApi()
   const navigate = useNavigate()

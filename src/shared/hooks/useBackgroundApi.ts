@@ -15,6 +15,11 @@ async function resolveBackgroundApi(): Promise<BackgroundApi | undefined> {
   return undefined
 }
 
+/**
+ * 获取BackgroundApi的React Hook
+ * 从window.backgroundApi或mainWindow.backgroundApi中获取API实例
+ * @returns BackgroundApi实例，如果未找到则返回undefined
+ */
 export function useBackgroundApi() {
   const [api, setApi] = useState<BackgroundApi | undefined>(() => window.backgroundApi)
 

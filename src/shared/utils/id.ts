@@ -1,3 +1,8 @@
+/**
+ * 生成UUID
+ * 优先使用crypto.randomUUID()，如果不支持则使用fallback实现
+ * @returns UUID字符串
+ */
 export function generateId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()

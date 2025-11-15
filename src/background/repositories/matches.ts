@@ -12,9 +12,22 @@ interface UpsertOptions {
   allowCreate?: boolean
 }
 
+/**
+ * MatchesRepository - 比赛数据仓库
+ * 负责比赛记录的创建、更新、查询等数据库操作
+ */
 export class MatchesRepository {
   private logger = new Logger({ namespace: 'MatchesRepository' })
 
+  /**
+   * 从GlobalMatchData创建或更新比赛记录
+   * - 如果记录不存在且allowCreate=true，则创建新记录
+   * - 如果记录已存在且winner为空，则更新记录
+   * - 如果记录已存在且winner不为空，则返回现有记录（不再更新）
+   * @param state - 全局比赛数据
+   * @param options - 选项（allowCreate: 是否允许创建新记录）
+   * @returns 比赛记录
+   */
   async createOrUpdateFromState(state: GlobalMatchData, options: UpsertOptions = {}): Promise<MatchRecord> {
     const { allowCreate = true } = options
     const matchId = state.match_info.pseudo_match_id
@@ -54,6 +67,12 @@ export class MatchesRepository {
     return record
   }
 
+  /**
+   * 最终化比赛记录（比赛结束时调用）
+   * 确保所有数据完整（winner, teamScore, gameState, matchState, me, players等）
+   * @param state - 全局比赛数据
+   * @returns 最终化的比赛记录
+   */
   async finalizeFromState(state: GlobalMatchData): Promise<MatchRecord> {
     const record = await this.createOrUpdateFromState(state, { allowCreate: true })
 
@@ -86,6 +105,12 @@ export class MatchesRepository {
     return db.matches.where('matchId').equals(matchId).first()
   }
 
+  /**
+   * 查询比赛记录（支持分页和筛选）
+   * 支持的筛选条件：matchId, gameMode, winner, startTime, endTime, gameState
+   * @param filters - 筛选条件（包含分页参数）
+   * @returns 分页结果
+   */
   async query(filters: MatchFilters = {}): Promise<PaginatedResult<MatchRecord>> {
     const {
       page = 1,

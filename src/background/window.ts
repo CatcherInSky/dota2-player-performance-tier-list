@@ -22,6 +22,10 @@ interface ObtainWindowResult {
 
 type WindowInfo = overwolf.windows.WindowInfo
 
+/**
+ * WindowManager - 窗口管理器
+ * 负责管理应用的所有窗口（background, desktop, history, comment）的显示、隐藏和状态
+ */
 export class WindowManager {
   private logger = new Logger({ namespace: 'WindowManager' })
   private windows = new Map<WindowName, WindowState>()
@@ -32,6 +36,14 @@ export class WindowManager {
     )
   }
 
+  /**
+   * 显示指定窗口
+   * - 获取窗口信息
+   * - 恢复窗口（如果被最小化）
+   * - 应用默认尺寸
+   * - 将窗口置于前台（可选）
+   * - 更新窗口可见状态
+   */
   async show(name: WindowName, bringToFront = true) {
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
@@ -44,6 +56,10 @@ export class WindowManager {
     this.updateVisibility(name, true)
   }
 
+  /**
+   * 隐藏指定窗口
+   * 更新窗口可见状态为false
+   */
   async hide(name: WindowName) {
     const windowInfo = await this.obtainWindow(name)
     if (!windowInfo) return
@@ -74,10 +90,17 @@ export class WindowManager {
     }
   }
 
+  /**
+   * 切换desktop窗口的显示/隐藏状态
+   */
   async toggleDesktop() {
     await this.toggle('desktop')
   }
 
+  /**
+   * 显示history窗口并触发数据更新事件
+   * 用于在比赛开始时显示历史记录覆盖层
+   */
   async showHistory() {
     await this.show('history')
     this.dispatchEvent('background:history:data')
@@ -87,6 +110,10 @@ export class WindowManager {
     await this.hide('history')
   }
 
+  /**
+   * 显示comment窗口并触发数据更新事件
+   * 用于在比赛结束时显示评价编辑窗口
+   */
   async showComment() {
     await this.show('comment')
     this.dispatchEvent('background:comment:data')
@@ -108,6 +135,10 @@ export class WindowManager {
     overwolf?.windows.dragMove(name)
   }
 
+  /**
+   * 检查是否有可见的前台窗口
+   * @returns true表示desktop/history/comment中至少有一个可见，false表示全部隐藏
+   */
   hasVisibleForeground() {
     return ['desktop', 'history', 'comment'].some((name) => this.isVisible(name as WindowName))
   }

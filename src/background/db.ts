@@ -33,6 +33,10 @@ export function createDefaultSettingsRecord(): SettingsRecord {
   }
 }
 
+/**
+ * DotaDexie - IndexedDB数据库类
+ * 使用Dexie作为IndexedDB的封装，管理matches、players、comments、settings四个表
+ */
 export class DotaDexie extends Dexie {
   matches!: Table<MatchRecord, string>
   players!: Table<PlayerRecord, string>
@@ -64,6 +68,11 @@ export class DotaDexie extends Dexie {
     )
   }
 
+  /**
+   * 导出数据库所有数据
+   * 用于备份和数据迁移
+   * @returns 包含所有表数据的导出对象
+   */
   async export(): Promise<ExportedDatabase> {
     const [matches, players, comments] = await Promise.all([
       this.matches.toArray(),
@@ -79,6 +88,11 @@ export class DotaDexie extends Dexie {
     }
   }
 
+  /**
+   * 导入数据库数据
+   * 使用事务确保数据一致性
+   * @param payload - 要导入的数据（matches, players, comments）
+   */
   async import(payload: ExportedDatabase) {
     const { matches, players, comments } = payload
 
@@ -102,6 +116,10 @@ export class DotaDexie extends Dexie {
     )
   }
 
+  /**
+   * 清空所有表的数据
+   * 使用事务确保操作的原子性
+   */
   async clearAll() {
     await this.transaction(
       'readwrite',

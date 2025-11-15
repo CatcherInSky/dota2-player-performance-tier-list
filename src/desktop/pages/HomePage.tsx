@@ -29,6 +29,11 @@ interface HomePageProps {
   api: BackgroundApi | undefined
 }
 
+/**
+ * HomePage - 主页组件
+ * 包含三个标签页：比赛表、玩家表、评价表
+ * 支持筛选、分页、实时刷新等功能
+ */
 export function HomePage({ api }: HomePageProps) {
   const { t } = useI18n()
   const navigate = useNavigate()

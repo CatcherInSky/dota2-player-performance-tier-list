@@ -5,9 +5,19 @@ import { Logger } from '../../shared/utils/logger'
 
 const SUPPORTED_LANGUAGES: Language[] = ['zh-CN', 'en-US']
 
+/**
+ * SettingsRepository - 设置数据仓库
+ * 负责应用设置的读取、更新、重置等数据库操作
+ */
 export class SettingsRepository {
   private logger = new Logger({ namespace: 'SettingsRepository' })
 
+  /**
+   * 获取设置记录
+   * 如果记录不存在则创建默认设置
+   * 如果记录存在但ratingLabels格式为旧版本，则自动迁移到新格式
+   * @returns 设置记录
+   */
   async get(): Promise<SettingsRecord> {
     const existing = await db.settings.get(SETTINGS_ID)
     if (existing) {
@@ -36,6 +46,12 @@ export class SettingsRepository {
     return defaults
   }
 
+  /**
+   * 更新设置记录
+   * 支持部分更新，会自动合并ratingLabels（支持按语言分组）
+   * @param payload - 要更新的设置字段
+   * @returns 更新后的设置记录
+   */
   async update(payload: Partial<SettingsRecord>): Promise<SettingsRecord> {
     const executor = async () => {
       const current = await this.get()

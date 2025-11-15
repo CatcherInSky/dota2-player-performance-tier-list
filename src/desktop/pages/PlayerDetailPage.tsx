@@ -12,6 +12,17 @@ interface PlayerDetailPageProps {
   api: BackgroundApi | undefined
 }
 
+/**
+ * PlayerDetailPage - 玩家详情页组件
+ * 显示玩家的完整信息：
+ * - 基础信息（名称、ID、曾用名）
+ * - 遭遇统计
+ * - 队友/对手统计
+ * - 英雄统计
+ * - 位置统计
+ * - 遭遇比赛表
+ * - 评分记录表
+ */
 export function PlayerDetailPage({ api }: PlayerDetailPageProps) {
   const { playerId = '' } = useParams()
   const { t } = useI18n()

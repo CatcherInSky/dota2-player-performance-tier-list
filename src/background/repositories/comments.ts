@@ -8,9 +8,19 @@ import { Logger } from '../../shared/utils/logger'
 import { DEFAULT_PAGE_SIZE } from './pagination'
 import { filterRosterPlayers } from '../../shared/utils/roster'
 
+/**
+ * CommentsRepository - 评价数据仓库
+ * 负责评价记录的创建、更新、查询等数据库操作
+ */
 export class CommentsRepository {
   private logger = new Logger({ namespace: 'CommentsRepository' })
 
+  /**
+   * 为所有玩家创建评价占位符（比赛结束时调用）
+   * 如果占位符已存在则跳过，避免重复创建
+   * @param matchId - 比赛ID
+   * @param players - 玩家列表
+   */
   async ensurePlaceholders(matchId: string, players: GlobalMatchData['roster']['players']) {
     const validPlayers = filterRosterPlayers(players)
     if (!validPlayers.length) return
@@ -44,6 +54,12 @@ export class CommentsRepository {
     }
   }
 
+  /**
+   * 保存评价记录（创建或更新）
+   * 如果记录已存在则更新，否则创建新记录
+   * @param payload - 评价数据（matchId, playerId, score, comment）
+   * @returns 保存后的评价记录
+   */
   async save(payload: { matchId: string; playerId: string; score: number; comment: string }) {
     const { matchId, playerId, score, comment } = payload
     if (!playerId) {
@@ -79,6 +95,13 @@ export class CommentsRepository {
     return db.comments.where('[matchId+playerId]').equals([matchId, playerId]).first()
   }
 
+  /**
+   * 查询评价记录（支持分页和筛选）
+   * 支持的筛选条件：playerId, matchId, score, startTime, endTime, comment（模糊匹配）
+   * 会关联查询players表，返回包含playerName的评论记录
+   * @param filters - 筛选条件（包含分页参数）
+   * @returns 分页结果（包含玩家名称）
+   */
   async query(filters: CommentFilters = {}): Promise<PaginatedResult<CommentWithPlayer>> {
     const { page = 1, pageSize = DEFAULT_PAGE_SIZE, playerId, matchId, score, startTime, endTime } = filters
     const offset = (page - 1) * pageSize

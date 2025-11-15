@@ -3,6 +3,11 @@ import { Dota2Team } from '../../shared/types/dota2'
 
 type Translate = (key: string) => string
 
+/**
+ * 标准化玩家队伍标识
+ * 将数字ID（2=Radiant, 3=Dire）或字符串key转换为Dota2Team枚举值
+ * @returns 标准化后的队伍枚举值，如果无效则返回null
+ */
 export function normalizePlayerTeam(team: unknown): Dota2Team | null {
   if (team === Dota2Team.RADIANT || team === Dota2Team.DIRE || team === Dota2Team.NONE) {
     return team
@@ -12,6 +17,15 @@ export function normalizePlayerTeam(team: unknown): Dota2Team | null {
   return null
 }
 
+/**
+ * 格式化比赛结果显示文本
+ * - 如果winner为空，显示"未知"
+ * - 如果有playerTeam（自己的队伍）：
+ *   - winner === playerTeam → "胜利"
+ *   - winner !== playerTeam → "失败"
+ * - 如果没有playerTeam，显示winner原始值（radiant/dire）
+ * @returns 格式化后的结果显示文本
+ */
 export function formatMatchResult(match: MatchRecord, t: Translate): string {
   if (!match?.winner) {
     return t('matches.unknown')

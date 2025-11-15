@@ -1,5 +1,9 @@
 type Listener<T> = (payload: T) => void
 
+/**
+ * EventBus - 事件总线类
+ * 提供事件的注册、取消注册和触发功能
+ */
 export class EventBus<Events extends Record<string, unknown>> {
   private listeners = new Map<keyof Events, Set<Listener<any>>>()
 

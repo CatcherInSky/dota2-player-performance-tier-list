@@ -39,12 +39,21 @@ const TEAM_ID_TO_KEY: Record<number, Dota2TeamKey> = {
   [Dota2TeamId.DIRE]: Dota2Team.DIRE,
 }
 
+/**
+ * MatchTracker - 比赛状态跟踪器
+ * 维护全局比赛数据（GlobalMatchData），监听游戏事件并更新状态
+ * 检测比赛起点信号（match_state进入策略时间或游戏进行中）和终点信号（game_over/match_ended）
+ */
 export class MatchTracker {
   private logger = new Logger({ namespace: 'MatchTracker' })
   private state: GlobalMatchData = this.createEmptyState()
   private active = false
   private matchId: string | undefined
 
+  /**
+   * 重置MatchTracker状态
+   * 清空所有比赛数据，重置active标志，用于比赛结束或游戏关闭时
+   */
   reset() {
     this.logger.info('Reset match tracker state')
     this.state = this.createEmptyState()
@@ -52,14 +61,30 @@ export class MatchTracker {
     this.matchId = undefined
   }
 
+  /**
+   * 获取当前比赛状态的深拷贝
+   * @returns 全局比赛数据的副本
+   */
   getState(): GlobalMatchData {
     return JSON.parse(JSON.stringify(this.state)) as GlobalMatchData
   }
 
+  /**
+   * 获取当前比赛ID
+   * 优先返回手动设置的matchId，否则返回state中的pseudo_match_id
+   */
   getMatchId(): string | undefined {
     return this.matchId ?? this.state.match_info.pseudo_match_id
   }
 
+  /**
+   * 处理 onInfoUpdates2 事件
+   * 根据feature类型更新相应的状态：
+   * - match_info: 更新 pseudo_match_id, game_mode, team_score
+   * - me: 更新 steam_id, team
+   * - roster: 更新 players 数组（过滤无效玩家，转换team ID为team key）
+   * - match_state_changed/game_state_changed: 更新 match_state 或 game_state
+   */
   handleInfoUpdate(update: DotaInfoUpdate) {
     switch (update.feature) {
       case 'match_info': {
@@ -136,6 +161,14 @@ export class MatchTracker {
     }
   }
 
+  /**
+   * 处理 onNewEvents 事件
+   * - match_state_changed: 更新match_state，检查起点信号
+   * - game_state_changed: 更新game_state和match_state，检查起点信号
+   * - match_ended: 更新winner
+   * - 检查终点信号（game_over/match_ended）
+   * @returns 'start' | 'end' | undefined - 比赛起点/终点信号
+   */
   handleNewEvents(payload: Dota2EventPayload): MatchSignal | undefined {
     let signal: MatchSignal | undefined
     payload.events.forEach((event) => {
@@ -197,12 +230,22 @@ export class MatchTracker {
     return signal
   }
 
+  /**
+   * 判断是否应该触发终点信号
+   * 检查事件列表中是否包含 game_over 或 match_ended 事件
+   * @returns true表示比赛已结束，false表示比赛仍在进行
+   */
   shouldEnd(events: Dota2EventPayload): boolean {
     const res = events.events.some((event) => MATCH_END_EVENTS.has(event.name))
     if (res) this.logger.info('END')
     return res
   }
 
+  /**
+   * 判断是否应该触发起点信号
+   * 条件：match_state为策略时间或游戏进行中，且active标志为false（确保每局只触发一次）
+   * @returns true表示比赛已开始，false表示比赛尚未开始
+   */
   shouldStart(matchState: Dota2MatchState): boolean {
     const res = !this.active && MATCH_START_STATES.includes(matchState)
     if (res) {
@@ -213,6 +256,10 @@ export class MatchTracker {
     return false
   }
 
+  /**
+   * 创建空的比赛状态对象
+   * 用于初始化和重置
+   */
   private createEmptyState(): GlobalMatchData {
     return {
       match_info: {},

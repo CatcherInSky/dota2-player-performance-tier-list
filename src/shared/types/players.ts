@@ -20,6 +20,13 @@ export interface PlayerViewModel {
   teamSlot?: number | null
 }
 
+/**
+ * 水合玩家数据（为玩家列表补充完整信息）
+ * 根据mode不同加载不同的数据：
+ * - history模式：加载玩家完整历史记录（所有评价和比赛）
+ * - editor模式：仅加载当前比赛的评价记录
+ * @returns 包含完整信息的玩家视图模型列表
+ */
 export async function hydratePlayers(
   api: BackgroundApi,
   source: GlobalMatchData | Dota2Player[] | undefined,

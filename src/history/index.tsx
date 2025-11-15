@@ -25,6 +25,11 @@ function formatAverageLabel(score: number | null | undefined, labels: Record<num
   return label
 }
 
+/**
+ * HistoryApp - 历史记录覆盖层应用
+ * 显示当前比赛的玩家列表及其历史统计数据（胜率、平均评分、评价摘要）
+ * 在比赛开始时自动显示，用于快速了解队友/对手的表现
+ */
 function HistoryApp() {
   const api = useBackgroundApi()
   const { t, ratingLabels } = useI18n()

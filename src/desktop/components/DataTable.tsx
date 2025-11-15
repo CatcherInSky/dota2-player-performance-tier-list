@@ -21,6 +21,10 @@ interface DataTableProps<T> {
 
 const PAGE_SIZES = [10, 20, 50, 100]
 
+/**
+ * DataTable - 通用数据表格组件
+ * 支持分页、列配置、行点击、自定义渲染等
+ */
 export function DataTable<T>({
   columns,
   data,

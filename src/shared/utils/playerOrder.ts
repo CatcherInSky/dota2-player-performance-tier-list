@@ -48,6 +48,13 @@ function sortCommentTeam<T extends PlayerViewModel>(list: T[]): T[] {
   return sortByPlayerIndex(list)
 }
 
+/**
+ * 为覆盖层排序玩家列表
+ * - 按队伍分组（Radiant在前，Dire在中，其他在后）
+ * - history模式：按playerIndex和teamSlot排序
+ * - comment模式：如果有唯一且有效的role，按role优先级排序；否则按playerIndex排序
+ * @returns 排序后的玩家列表
+ */
 export function sortPlayersForOverlay<T extends PlayerViewModel>(
   players: Array<T & { teamSlot?: number | null }>,
   variant: PlayerOrderVariant = 'comment',
