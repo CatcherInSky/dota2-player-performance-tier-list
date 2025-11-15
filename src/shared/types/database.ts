@@ -35,12 +35,16 @@ export interface CommentRecord {
 
 export type RatingLabelKey = 1 | 2 | 3 | 4 | 5
 
+export type Language = 'zh-CN' | 'en-US'
+
+export type RatingLabelsByLanguage = Record<Language, Record<RatingLabelKey, string>>
+
 export interface SettingsRecord {
   id: string
   createdAt: number
   updatedAt: number
-  language: 'zh-CN' | 'en-US'
-  ratingLabels: Record<RatingLabelKey, string>
+  language: Language
+  ratingLabels: RatingLabelsByLanguage
 }
 
 export interface ExportedDatabase {

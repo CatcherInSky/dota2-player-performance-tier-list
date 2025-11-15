@@ -2,9 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { BackgroundApi } from '../types/api'
 import { useBackgroundApi } from '../hooks/useBackgroundApi'
 import { useBackgroundEvents } from '../hooks/useBackgroundEvents'
-import type { SettingsRecord } from '../types/database'
-
-type Language = 'zh-CN' | 'en-US'
+import type { Language, RatingLabelKey, SettingsRecord } from '../types/database'
 
 type MessageDictionary = Record<Language, Record<string, string>>
 
@@ -174,18 +172,27 @@ interface I18nContextValue {
   setLanguage: (lang: Language, sync?: boolean) => void
   t: (key: string, fallback?: string) => string
   settings: SettingsRecord | null
-  ratingLabels: SettingsRecord['ratingLabels']
+  ratingLabels: Record<RatingLabelKey, string>
   backgroundApi: BackgroundApi | undefined
 }
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined)
 
-const DEFAULT_LABELS: SettingsRecord['ratingLabels'] = {
-  1: '拉',
-  2: '菜鸟',
-  3: 'NPC',
-  4: '顶级',
-  5: '夯',
+export const DEFAULT_RATING_LABELS: SettingsRecord['ratingLabels'] = {
+  'zh-CN': {
+    1: '拉',
+    2: '菜鸟',
+    3: 'NPC',
+    4: '顶级',
+    5: '夯',
+  },
+  'en-US': {
+    1: 'D',
+    2: 'C',
+    3: 'B',
+    4: 'A',
+    5: 'S',
+  },
 }
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -233,7 +240,10 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [language],
   )
 
-  const ratingLabels = useMemo(() => settings?.ratingLabels ?? DEFAULT_LABELS, [settings])
+  const ratingLabels = useMemo<Record<RatingLabelKey, string>>(
+    () => (settings?.ratingLabels?.[language] ?? DEFAULT_RATING_LABELS[language]),
+    [language, settings],
+  )
 
   const value = useMemo<I18nContextValue>(
     () => ({

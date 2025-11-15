@@ -7,11 +7,20 @@ export const DEFAULT_SETTINGS_TEMPLATE: Pick<SettingsRecord, 'id' | 'language' |
   id: SETTINGS_ID,
   language: 'zh-CN',
   ratingLabels: {
-    1: '拉',
-    2: '菜鸟',
-    3: 'NPC',
-    4: '顶级',
-    5: '夯',
+    'zh-CN': {
+      1: '拉',
+      2: '菜鸟',
+      3: 'NPC',
+      4: '顶级',
+      5: '夯',
+    },
+    'en-US': {
+      1: 'D',
+      2: 'C',
+      3: 'B',
+      4: 'A',
+      5: 'S',
+    },
   },
 }
 
